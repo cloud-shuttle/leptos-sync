@@ -1,0 +1,65 @@
+{
+  "name": "leptos-sync",
+  "version": "0.1.0",
+  "description": "Local-first, offline-capable data synchronization for Leptos applications",
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "scripts": {
+    "build": "make build",
+    "build:release": "make build-release",
+    "test": "make test",
+    "test:wasm": "make test-wasm",
+    "test:browser": "make test-browser",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:all": "make test && playwright test",
+    "clean": "make clean",
+    "wasm": "make wasm",
+    "docs": "make docs",
+    "check": "make check",
+    "audit": "make audit",
+    "coverage": "make coverage",
+    "setup": "make setup",
+    "dev": "cargo leptos watch",
+    "start": "cargo leptos serve",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
+    "db:reset": "docker-compose down -v && docker-compose up -d"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "playwright": "1.55.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "^5.0.0"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/leptos-sync"
+  },
+  "keywords": [
+    "leptos",
+    "sync",
+    "crdt",
+    "local-first",
+    "offline",
+    "rust",
+    "wasm"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT"
+}

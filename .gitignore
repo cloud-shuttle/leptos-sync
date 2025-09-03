@@ -1,0 +1,27 @@
+
+# Nix
+.direnv/
+.envrc
+result
+result-*
+
+# PNPM
+.pnpm-store/
+pnpm-lock.yaml
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# WASM
+pkg/
+*.wasm
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
