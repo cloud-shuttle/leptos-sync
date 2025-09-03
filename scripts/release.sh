@@ -70,12 +70,12 @@ elif [ $TEST_EXIT_CODE -eq 101 ]; then
         echo -e "${YELLOW}⚠️  Note: 2 IndexedDB tests fail on native targets (expected behavior)${NC}"
     else
         echo -e "${RED}❌ Tests failed with unexpected results${NC}"
-        echo "$TEST_OUTPUT" | grep "test result:"
+        echo "$TEST_OUTPUT" | grep "test result:" | head -1
         exit 1
     fi
 else
     echo -e "${RED}❌ Tests failed! Cannot proceed with release${NC}"
-    echo "$TEST_OUTPUT" | grep "test result:"
+    echo "$TEST_OUTPUT" | grep "test result:" | head -1
     exit 1
 fi
 
