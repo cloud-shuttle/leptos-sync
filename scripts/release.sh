@@ -29,12 +29,18 @@ if [ "$CURRENT_BRANCH" != "$RELEASE_BRANCH" ]; then
     exit 1
 fi
 
-# Check if working directory is clean
-if [ -n "$(git status --porcelain)" ]; then
-    echo -e "${RED}❌ Error: Working directory is not clean${NC}"
+# Check if working directory has uncommitted changes (ignore untracked files)
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo -e "${RED}❌ Error: Working directory has uncommitted changes${NC}"
     echo -e "${YELLOW}Please commit or stash your changes${NC}"
     git status --short
     exit 1
+fi
+
+# Show untracked files for information
+UNTRACKED_FILES=$(git status --porcelain --untracked-files=all | grep '^??' | wc -l)
+if [ "$UNTRACKED_FILES" -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Warning: $UNTRACKED_FILES untracked files present (these won't affect the release)${NC}"
 fi
 
 # Check if remote is up to date
