@@ -214,38 +214,50 @@ impl AdvancedConflictResolver {
 
     async fn merge_text_conflicts<T: Mergeable + Clone>(
         &self,
-        _local: &T,
-        _remote: &T,
+        local: &T,
+        remote: &T,
     ) -> Result<T, ConflictResolutionError> {
         // Text-specific merging logic would go here
-        // For now, return an error
-        Err(ConflictResolutionError::StrategyNotApplicable(
-            "Text merging not implemented".to_string()
-        ))
+        // For now, fall back to last-write-wins
+        self.resolve_last_write_wins(local, remote, &ConflictMetadata {
+            replica_id: ReplicaId::default(),
+            timestamp: Utc::now(),
+            version: 1,
+            conflict_type: "text".to_string(),
+            resolution_strategy: ConflictStrategy::LastWriteWins,
+        }).await
     }
 
     async fn merge_numeric_conflicts<T: Mergeable + Clone>(
         &self,
-        _local: &T,
-        _remote: &T,
+        local: &T,
+        remote: &T,
     ) -> Result<T, ConflictResolutionError> {
         // Numeric-specific merging logic would go here
-        // For now, return an error
-        Err(ConflictResolutionError::StrategyNotApplicable(
-            "Numeric merging not implemented".to_string()
-        ))
+        // For now, fall back to last-write-wins
+        self.resolve_last_write_wins(local, remote, &ConflictMetadata {
+            replica_id: ReplicaId::default(),
+            timestamp: Utc::now(),
+            version: 1,
+            conflict_type: "numeric".to_string(),
+            resolution_strategy: ConflictStrategy::LastWriteWins,
+        }).await
     }
 
     async fn merge_list_conflicts<T: Mergeable + Clone>(
         &self,
-        _local: &T,
-        _remote: &T,
+        local: &T,
+        remote: &T,
     ) -> Result<T, ConflictResolutionError> {
         // List-specific merging logic would go here
-        // For now, return an error
-        Err(ConflictResolutionError::StrategyNotApplicable(
-            "List merging not implemented".to_string()
-        ))
+        // For now, fall back to last-write-wins
+        self.resolve_last_write_wins(local, remote, &ConflictMetadata {
+            replica_id: ReplicaId::default(),
+            timestamp: Utc::now(),
+            version: 1,
+            conflict_type: "list".to_string(),
+            resolution_strategy: ConflictStrategy::LastWriteWins,
+        }).await
     }
 
     pub fn get_conflict_history(&self) -> &[ConflictMetadata] {
