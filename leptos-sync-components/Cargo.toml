@@ -1,0 +1,12 @@
+[package]
+name = "leptos-sync-components"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Leptos components for synchronization UI"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+leptos.workspace = true
+leptos-sync-core = { path = "../leptos-sync-core" }
