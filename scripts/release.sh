@@ -58,24 +58,24 @@ fi
 
 # Run tests to ensure everything works
 echo -e "${BLUE}🧪 Running tests...${NC}"
-cargo test --workspace
-
+TEST_OUTPUT=$(cargo test --workspace 2>&1)
 TEST_EXIT_CODE=$?
+
 if [ $TEST_EXIT_CODE -eq 0 ]; then
     echo -e "${GREEN}✅ All tests passed${NC}"
 elif [ $TEST_EXIT_CODE -eq 101 ]; then
     # Check if we have the expected 42/44 test results
-    TEST_OUTPUT=$(cargo test --workspace 2>&1 | grep "test result:")
     if echo "$TEST_OUTPUT" | grep -q "42 passed; 2 failed"; then
         echo -e "${GREEN}✅ Tests passed with expected IndexedDB failures (42/44 passing)${NC}"
         echo -e "${YELLOW}⚠️  Note: 2 IndexedDB tests fail on native targets (expected behavior)${NC}"
     else
         echo -e "${RED}❌ Tests failed with unexpected results${NC}"
-        echo "$TEST_OUTPUT"
+        echo "$TEST_OUTPUT" | grep "test result:"
         exit 1
     fi
 else
     echo -e "${RED}❌ Tests failed! Cannot proceed with release${NC}"
+    echo "$TEST_OUTPUT" | grep "test result:"
     exit 1
 fi
 
