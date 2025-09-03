@@ -20,6 +20,20 @@ test-wasm: ## Run WASM tests
 test-browser: ## Run browser tests
 	wasm-pack test --chrome --headless
 
+test-e2e: ## Run Playwright E2E tests
+	playwright test
+
+test-e2e-ui: ## Run Playwright E2E tests with UI
+	playwright test --ui
+
+test-e2e-headed: ## Run Playwright E2E tests in headed mode
+	playwright test --headed
+
+test-e2e-debug: ## Run Playwright E2E tests in debug mode
+	playwright test --debug
+
+test-all: test test-e2e ## Run all tests (unit + E2E)
+
 clean: ## Clean build artifacts
 	cargo clean
 	rm -rf pkg/

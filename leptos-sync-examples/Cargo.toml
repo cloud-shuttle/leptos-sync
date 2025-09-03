@@ -7,7 +7,15 @@ description = "Example applications using Leptos-Sync"
 license.workspace = true
 repository.workspace = true
 
+
+
 [dependencies]
 leptos.workspace = true
 leptos-sync-core = { path = "../leptos-sync-core" }
 leptos-sync-components = { path = "../leptos-sync-components" }
+web-sys.workspace = true
+serde.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+console_error_panic_hook = "0.1"
+wasm-bindgen-futures.workspace = true

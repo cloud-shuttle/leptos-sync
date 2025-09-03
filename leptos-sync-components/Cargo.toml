@@ -7,6 +7,9 @@ description = "Leptos components for synchronization UI"
 license.workspace = true
 repository.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 leptos.workspace = true
 leptos-sync-core = { path = "../leptos-sync-core" }
