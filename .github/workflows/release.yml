@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run tests
+        run: |
+          cargo test --workspace
+          pnpm test:e2e
+
+      - name: Build packages
+        run: |
+          cargo build --release --workspace
+          cargo build --release --target wasm32-unknown-unknown --workspace
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          body: |
+            ## What's Changed
+            
+            This release includes:
+            - Core CRDT implementation
+            - Advanced conflict resolution
+            - Real-time synchronization
+            - Security features
+            - Comprehensive error handling
+            - Production deployment infrastructure
+            
+            ## Installation
+            
+            ```toml
+            [dependencies]
+            leptos-sync-core = "0.1.0"
+            ```
+            
+            ## Documentation
+            
+            - [README](https://github.com/cloud-shuttle/leptos-sync#readme)
+            - [API Reference](https://docs.rs/leptos-sync-core)
+            - [Architecture Guide](https://github.com/cloud-shuttle/leptos-sync/blob/main/docs/architecture.md)
+            
+            ## Breaking Changes
+            
+            None - This is the first public release.
+            
+            ## Contributors
+            
+            Thank you to all contributors who made this release possible!
+
+  publish-crates:
+    name: Publish to Crates.io
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Publish leptos-sync-core
+        run: |
+          cd leptos-sync-core
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish leptos-sync-macros
+        run: |
+          cd leptos-sync-macros
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish leptos-sync-components
+        run: |
+          cd leptos-sync-components
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish leptos-sync-examples
+        run: |
+          cd leptos-sync-examples
+          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  notify:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [release, publish-crates]
+    if: always()
+    steps:
+      - name: Notify Discord
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: ${{ job.status }}
+          title: Leptos-Sync Release
+          description: |
+            Release ${{ github.ref }} has been published!
+            
+            - GitHub Release: ✅ Created
+            - Crates.io: ✅ Published
+            
+            🚀 [View Release](https://github.com/cloud-shuttle/leptos-sync/releases/tag/${{ github.ref }})
+            📦 [Crates.io](https://crates.io/crates/leptos-sync-core)

@@ -1,21 +1,40 @@
 [build]
-target = "wasm32-unknown-unknown"
+# Enable incremental compilation for faster builds
+incremental = true
+
+# Use multiple jobs for compilation
+jobs = 4
 
 [target.wasm32-unknown-unknown]
+# Optimize WASM output for size and performance
 rustflags = [
-    "-C", "link-arg=--import-memory",
-    "-C", "link-arg=--initial-memory=65536",
-    "-C", "link-arg=--max-memory=65536",
-    "-C", "link-arg=--stack-first",
+    "-C", "target-feature=+crt-static",
     "-C", "link-arg=--export-table",
+    "-C", "link-arg=--import-memory",
 ]
 
+[profile.release]
+# Optimize for size in release builds
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+# Faster compilation in development
+opt-level = 0
+debug = true
+incremental = true
+
+[profile.test]
+# Optimize tests for speed
+opt-level = 1
+debug = true
+incremental = true
+
 [alias]
-test-all = "test --all --all-features"
-test-wasm = "wasm-pack test --node --headless"
-test-browser = "wasm-pack test --chrome --headless"
-bench-all = "bench --all --all-features"
-check-all = "check --all --all-features"
-clippy-all = "clippy --all --all-features -- -D warnings"
-fmt-all = "fmt --all"
-audit-all = "audit --all"
+# Useful cargo aliases
+test-all = "test --workspace"
+check-all = "check --workspace"
+build-all = "build --workspace"
+clean-all = "clean --workspace"

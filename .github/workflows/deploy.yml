@@ -1,0 +1,471 @@
+name: Deploy Network-First MVP
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'leptos-sync/**'
+      - 'leptos-sync-core/**'
+      - 'leptos-sync-components/**'
+      - 'deployment/**'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'leptos-sync/**'
+      - 'leptos-sync-core/**'
+      - 'leptos-sync-components/**'
+      - 'deployment/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment even if tests fail'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/leptos-sync-websocket
+  RUST_VERSION: "1.75.0"
+  NODE_VERSION: "20"
+
+jobs:
+  # Security and Quality Checks
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          
+      - name: Install cargo-audit
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-audit
+          version: latest
+          
+      - name: Run security audit
+        run: cargo audit --deny warnings
+        
+      - name: Check for known vulnerabilities
+        run: cargo audit --deny warnings --deny unmaintained --deny unsound --deny yanked
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          
+      - name: Install cargo-deny
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-deny
+          version: latest
+          
+      - name: Check license compliance
+        run: cargo deny check licenses
+        
+      - name: Check dependency tree
+        run: cargo deny check tree
+        
+      - name: Check for banned dependencies
+        run: cargo deny check bans
+
+  # Build and Test
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: [security-audit, code-quality]
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, wasm32-unknown-unknown]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          override: true
+          target: ${{ matrix.target }}
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+            
+      - name: Build project
+        run: |
+          if [ "${{ matrix.target }}" = "wasm32-unknown-unknown" ]; then
+            cargo build --target ${{ matrix.target }} --workspace --exclude leptos-sync
+          else
+            cargo build --target ${{ matrix.target }} --workspace
+          fi
+          
+      - name: Run tests
+        run: |
+          if [ "${{ matrix.target }}" = "wasm32-unknown-unknown" ]; then
+            cargo test --target ${{ matrix.target }} --workspace --exclude leptos-sync --no-run
+          else
+            cargo test --target ${{ matrix.target }} --workspace --exclude leptos-sync
+          fi
+          
+      - name: Run E2E tests
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          pnpm test:e2e
+          
+      - name: Run performance tests
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: |
+          cargo bench --workspace --exclude leptos-sync
+
+  # WASM Build and Test
+  wasm-build:
+    name: WASM Build and Test
+    runs-on: ubuntu-latest
+    needs: [security-audit, code-quality]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          target: wasm32-unknown-unknown
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          
+      - name: Install wasm-pack
+        uses: actions-rs/install@v0.1
+        with:
+          crate: wasm-pack
+          version: latest
+          
+      - name: Build WASM packages
+        run: |
+          chmod +x scripts/build-wasm.sh
+          ./scripts/build-wasm.sh
+          
+      - name: Test WASM packages
+        run: |
+          wasm-pack test --headless --firefox --chrome --safari leptos-sync-core
+          wasm-pack test --headless --firefox --chrome --safari leptos-sync-components
+
+  # Docker Build
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [build-and-test, wasm-build]
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      - name: Build and push WebSocket server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deployment/Dockerfile.server
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          
+      - name: Deploy to staging
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl apply -f deployment/kubernetes/namespace.yaml
+          kubectl apply -f deployment/kubernetes/websocket-server.yaml
+          kubectl rollout status deployment/leptos-sync-websocket -n leptos-sync
+          
+      - name: Run smoke tests
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl wait --for=condition=ready pod -l app=leptos-sync-websocket -n leptos-sync --timeout=300s
+          
+      - name: Notify deployment
+        run: |
+          echo "✅ Successfully deployed to staging environment"
+          echo "WebSocket server: staging.leptos-sync.example.com"
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'production'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+          
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.PRODUCTION_KUBECONFIG }}" | base64 -d > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          
+      - name: Deploy to production
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl apply -f deployment/kubernetes/namespace.yaml
+          kubectl apply -f deployment/kubernetes/websocket-server.yaml
+          kubectl rollout status deployment/leptos-sync-websocket -n leptos-sync
+          
+      - name: Run smoke tests
+        run: |
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl wait --for=condition=ready pod -l app=leptos-sync-websocket -n leptos-sync --timeout=300s
+          
+      - name: Notify deployment
+        run: |
+          echo "🚀 Successfully deployed to production environment"
+          echo "WebSocket server: websocket.leptos-sync.example.com"
+          
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            ## Network-First MVP Release
+            
+            This release includes:
+            - Real-time WebSocket synchronization
+            - Multi-user sync engine
+            - Production-ready deployment
+            - Comprehensive monitoring
+            
+            ### Changes
+            - Added WebSocket transport layer
+            - Enhanced sync engine with conflict resolution
+            - Production deployment with Kubernetes
+            - Monitoring and observability setup
+            
+            ### Deployment
+            - Staging: staging.leptos-sync.example.com
+            - Production: websocket.leptos-sync.example.com
+          draft: false
+          prerelease: false
+
+  # Performance and Load Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Run load tests
+        run: |
+          pnpm test:load --config tests/e2e/performance/load.config.ts
+          
+      - name: Run stress tests
+        run: |
+          pnpm test:stress --config tests/e2e/performance/stress.config.ts
+          
+      - name: Generate performance report
+        run: |
+          pnpm test:perf --reporter=html --reporter=json
+
+  # Security Scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          
+      - name: Run Snyk security scan
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          args: --severity-threshold=high
+
+  # Final Status
+  deployment-status:
+    name: Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production, performance-test, security-scan]
+    if: always()
+    
+    steps:
+      - name: Check deployment status
+        run: |
+          echo "## 🚀 Network-First MVP Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.deploy-staging.result }}" = "success" ]; then
+            echo "✅ **Staging**: Successfully deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Staging**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.deploy-production.result }}" = "success" ]; then
+            echo "✅ **Production**: Successfully deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Production**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.performance-test.result }}" = "success" ]; then
+            echo "✅ **Performance Tests**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Performance Tests**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.security-scan.result }}" = "success" ]; then
+            echo "✅ **Security Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Monitor production metrics" >> $GITHUB_STEP_SUMMARY
+          echo "2. Set up alerting rules" >> $GITHUB_STEP_SUMMARY
+          echo "3. Plan next iteration" >> $GITHUB_STEP_SUMMARY
