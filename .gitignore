@@ -1,13 +1,13 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+pnpm-lock.yaml
 
 # Nix
 .direnv/
 .envrc
 result
 result-*
-
-# PNPM
-.pnpm-store/
-pnpm-lock.yaml
 
 # Rust
 target/
@@ -21,7 +21,41 @@ pkg/
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
+*.tmp
+*.log
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Test results
+test-results/
+playwright-report/
+coverage/
+*.lcov
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.long-type-*.txt
+*.tmp
+*.temp
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Package manager
+yarn.lock
+package-lock.json
