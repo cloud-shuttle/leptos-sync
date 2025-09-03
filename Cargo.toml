@@ -9,9 +9,13 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-leptos = "0.8"
-leptos-ws = "0.8"
-web-sys = "0.3"
+leptos = "0.8.0-rc2"
+leptos_ws = "0.8.0-rc2"
+web-sys = { version = "0.3", features = [
+    "Window", 
+    "Storage",
+    "console"
+] }
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -21,6 +25,9 @@ thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
 redis = { version = "0.23", features = ["tokio-comp"] }
 prometheus = "0.13"
@@ -31,9 +38,13 @@ tower-http = { version = "0.5", features = ["cors", "trace"] }
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Cloud Shuttle <team@cloud-shuttle.com>"]
 description = "Local-first, offline-capable data synchronization for Leptos applications"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/your-org/leptos-sync"
-keywords = ["leptos", "sync", "crdt", "local-first", "offline"]
+repository = "https://github.com/cloud-shuttle/leptos-sync"
+keywords = ["leptos", "sync", "crdt", "local-first", "offline", "wasm", "web"]
 categories = ["web-programming", "asynchronous", "data-structures"]
+
+[[workspace.metadata.leptos]]
+name = "leptos-sync-examples"
+path = "leptos-sync-examples"

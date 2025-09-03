@@ -1,23 +1,28 @@
-//! Leptos-Sync Core Library
+//! Core synchronization library for Leptos applications
 //! 
-//! This library provides local-first, offline-capable data synchronization
-//! for Leptos applications using CRDTs and conflict resolution.
+//! This crate provides the foundation for local-first, offline-capable data synchronization
+//! using CRDTs (Conflict-free Replicated Data Types).
 
-pub mod storage;
-pub mod crdt;
-pub mod sync;
-pub mod error;
 pub mod collection;
+pub mod crdt;
+pub mod error;
 pub mod query;
+pub mod storage;
+pub mod sync;
 pub mod transport;
+pub mod security;
 
+// Re-export main types for convenience
 pub use collection::LocalFirstCollection;
-pub use error::{Error, Result};
+pub use crdt::{LwwMap, LwwRegister, Mergeable, ReplicaId};
+pub use error::{CoreError, Result};
+pub use storage::{LocalStorage, StorageError};
+pub use sync::{SyncError, SyncState};
+pub use transport::{SyncTransport, TransportError};
 
-/// Re-export common dependencies for convenience
-pub use serde;
-pub use serde_json;
-pub use uuid;
+// Re-export common traits and types
+pub use serde::{Deserialize, Serialize};
+pub use async_trait::async_trait;
 
 /// Features available in this crate
 pub mod features {
