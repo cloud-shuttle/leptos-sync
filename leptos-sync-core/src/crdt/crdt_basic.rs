@@ -7,7 +7,7 @@ use std::hash::Hash;
 use uuid::Uuid;
 
 /// Unique identifier for a replica
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ReplicaId(#[serde(with = "uuid_serde")] pub Uuid);
 
 mod uuid_serde {

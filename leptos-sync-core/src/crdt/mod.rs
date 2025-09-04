@@ -8,6 +8,7 @@ pub mod list;
 pub mod tree;
 pub mod graph;
 pub mod builder;
+pub mod advanced;
 
 // Re-export basic CRDTs
 pub use crdt_basic::{LwwRegister, LwwMap, GCounter, ReplicaId, Mergeable, CRDT};
@@ -31,6 +32,12 @@ pub use graph::{
 pub use builder::{
     CrdtBuilder, CrdtBuilderConfig, FieldConfig, CrdtStrategy, 
     CustomCrdt, GenericCrdtField, CrdtField, BuilderError
+};
+
+// Re-export advanced CRDT types
+pub use advanced::{
+    Rga, RgaElement, Lseq, LseqElement, YjsTree, YjsNode, YjsTreeNode,
+    Dag, DagNode, PositionId, AdvancedCrdtError
 };
 
 #[cfg(test)]
@@ -152,5 +159,60 @@ mod tests {
                 assert_eq!(friends_array.len(), 3); // Bob, Charlie, David
             }
         }
+    }
+
+    #[test]
+    fn test_advanced_crdt_integration() {
+        let replica1 = create_replica(1);
+        let replica2 = create_replica(2);
+        
+        // Test RGA integration
+        let mut rga1 = Rga::new(replica1.clone());
+        let mut rga2 = Rga::new(replica2.clone());
+        
+        let _pos1 = rga1.insert_after("hello".to_string(), None).unwrap();
+        let _pos2 = rga2.insert_after("world".to_string(), None).unwrap();
+        
+        rga1.merge(&rga2).unwrap();
+        let elements = rga1.to_vec();
+        assert!(elements.contains(&"hello".to_string()));
+        assert!(elements.contains(&"world".to_string()));
+        
+        // Test LSEQ integration
+        let mut lseq1 = Lseq::new(replica1.clone());
+        let mut lseq2 = Lseq::new(replica2.clone());
+        
+        lseq1.insert("item1".to_string(), None).unwrap();
+        lseq2.insert("item2".to_string(), None).unwrap();
+        
+        lseq1.merge(&lseq2).unwrap();
+        let elements = lseq1.to_vec();
+        assert!(elements.contains(&"item1".to_string()));
+        assert!(elements.contains(&"item2".to_string()));
+        
+        // Test Yjs Tree integration
+        let mut tree1 = YjsTree::new(replica1.clone());
+        let mut tree2 = YjsTree::new(replica2.clone());
+        
+        let root1_id = tree1.add_root("root1".to_string()).unwrap();
+        let root2_id = tree2.add_root("root2".to_string()).unwrap();
+        
+        tree1.add_child(&root1_id, "child1".to_string()).unwrap();
+        tree2.add_child(&root2_id, "child2".to_string()).unwrap();
+        
+        tree1.merge(&tree2).unwrap();
+        assert_eq!(tree1.len(), 4); // 2 roots + 2 children
+        
+        // Test DAG integration
+        let mut dag1 = Dag::new(replica1);
+        let mut dag2 = Dag::new(replica2);
+        
+        let node1_id = dag1.add_node("node1".to_string()).unwrap();
+        let node2_id = dag2.add_node("node2".to_string()).unwrap();
+        
+        // No edges needed for merge test
+        
+        dag1.merge(&dag2).unwrap();
+        assert_eq!(dag1.len(), 2);
     }
 }

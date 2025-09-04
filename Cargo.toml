@@ -6,7 +6,8 @@ members = [
     "leptos-sync-examples",
     "tests/integration",
     "examples/devtools_demo",
-    "examples/custom_crdt_demo"
+    "examples/custom_crdt_demo",
+    "examples/advanced_crdt_demo"
 ]
 
 resolver = "2"
