@@ -462,36 +462,19 @@ fn benchmark_concurrent_operations(c: &mut Criterion) {
 // ============================================================================
 
 criterion_group!(
-    crdt_benches,
+    benches,
     benchmark_lww_register_creation,
     benchmark_lww_register_merge,
     benchmark_lww_register_serialization,
     benchmark_lww_map_operations,
     benchmark_lww_map_merge,
     benchmark_gcounter_operations,
-    benchmark_gcounter_merge
-);
-
-criterion_group!(
-    collection_benches,
+    benchmark_gcounter_merge,
     benchmark_collection_operations,
-    benchmark_collection_list
-);
-
-criterion_group!(
-    storage_benches,
-    benchmark_storage_operations
-);
-
-criterion_group!(
-    memory_benches,
+    benchmark_collection_list,
+    benchmark_storage_operations,
     benchmark_memory_usage,
     benchmark_concurrent_operations
 );
 
-criterion_main!(
-    crdt_benches,
-    collection_benches,
-    storage_benches,
-    memory_benches
-);
+criterion_main!(benches);
