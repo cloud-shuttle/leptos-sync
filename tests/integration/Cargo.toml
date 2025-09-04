@@ -3,8 +3,8 @@ name = "leptos-sync-integration-tests"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "sync_workflow"
+[lib]
+name = "leptos_sync_integration_tests"
 path = "sync_workflow.rs"
 
 [dependencies]

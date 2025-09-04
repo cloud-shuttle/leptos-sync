@@ -2,6 +2,8 @@
 //! 
 //! These tests verify that the storage, transport, and sync layers work together correctly.
 
+#[cfg(test)]
+mod tests {
 use leptos_sync_core::{
     collection::LocalFirstCollection,
     crdt::{LwwRegister, ReplicaId},
@@ -382,4 +384,5 @@ async fn test_concurrent_operations() {
     // in the original collection. This test demonstrates concurrent operations
     // but doesn't test shared state. In a real integration test, we'd use
     // shared storage or transport to verify synchronization.
+}
 }
