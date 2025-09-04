@@ -44,7 +44,7 @@ tokio-test = "0.4"
 tempfile = "3.0"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Cloud Shuttle <team@cloud-shuttle.com>"]
 description = "Local-first, offline-capable data synchronization for Leptos applications"

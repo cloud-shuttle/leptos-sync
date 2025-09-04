@@ -12,6 +12,9 @@ pub mod sync;
 pub mod transport;
 pub mod security;
 
+#[cfg(test)]
+mod wasm_tests;
+
 // Re-export main types for convenience
 pub use collection::LocalFirstCollection;
 pub use crdt::{LwwMap, LwwRegister, Mergeable, ReplicaId};

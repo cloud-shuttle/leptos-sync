@@ -40,3 +40,7 @@ tokio-test = "0.4"
 proptest = "1.0"
 criterion = "0.5"
 wasm-bindgen-test = "0.3"
+
+[[bench]]
+name = "crdt_benchmarks"
+harness = false

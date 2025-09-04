@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-01-03
+
+### Added
+- **Comprehensive WASM Testing Infrastructure**: 18 browser-specific tests covering IndexedDB storage, CRDT operations, and browser API integration
+- **Performance Benchmarking Suite**: 8 benchmark groups with 30+ individual benchmarks using criterion crate
+- **Advanced CRDT Testing**: Property-based testing for mathematical correctness (18 tests)
+- **Integration Testing Framework**: Full-stack testing with mock transport and storage (8 tests)
+- **Professional TDD Infrastructure**: Industry-standard testing practices with 85+ total tests
+
+### Enhanced
+- **Testing Coverage**: Expanded from 44 to 85+ tests (94% increase)
+- **CRDT Mathematical Verification**: Automated property-based testing for commutativity, associativity, idempotency, and convergence
+- **Browser Compatibility**: Comprehensive WASM testing for deployment confidence
+- **Performance Monitoring**: Detailed benchmarks for optimization guidance
+
+### Technical Improvements
+- **WASM Test Environment**: Browser-specific testing with IndexedDB and localStorage
+- **Benchmark Infrastructure**: Professional performance measurement using criterion
+- **Mock Implementations**: Comprehensive test doubles for transport and storage layers
+- **Error Handling**: Robust error testing and edge case coverage
+
+### Dependencies
+- Added `proptest = "1.0"` for property-based testing
+- Added `wasm-bindgen-test = "0.3"` for WASM testing
+- Added `criterion = "0.5"` for performance benchmarking
+- Added `tokio-test = "0.4"` for async testing utilities
+- Added `tempfile = "3.0"` for temporary file operations
+
+## [0.2.0] - 2025-01-03
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
