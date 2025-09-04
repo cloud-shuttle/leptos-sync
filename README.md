@@ -6,6 +6,8 @@
 [![Rust Version](https://img.shields.io/badge/rust-1.75+-blue.svg)](https://www.rust-lang.org)
 [![Leptos Version](https://img.shields.io/badge/leptos-0.8.x-blue.svg)](https://leptos.dev)
 
+> **⚠️ Generated Code Disclaimer**: This project contains code generated with the assistance of AI tools. While the core functionality has been thoroughly tested and validated, please review all code before use in production environments.
+
 A **production-ready**, local-first synchronization library for [Leptos](https://leptos.dev) applications, featuring advanced conflict resolution, real-time synchronization, and comprehensive offline capabilities.
 
 ## 🚀 Features
@@ -27,14 +29,20 @@ A **production-ready**, local-first synchronization library for [Leptos](https:/
 - **Multi-User Sync Engine**: Complete implementation with peer management
 - **Production Deployment**: Kubernetes manifests, monitoring, and CI/CD
 
+### 🎮 **Collaborative Application Demos (v0.6.0)**
+- **Text Editor Demo (RGA)**: Real-time collaborative text editing with character-level operations
+- **Task Manager Demo (LSEQ)**: Collaborative task management with ordered sequences
+- **Document Editor Demo (Yjs Tree)**: Hierarchical document editing with tree structures
+- **Project Manager Demo (DAG)**: Project management with task dependencies and relationships
+
 ## 📦 Installation
 
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-leptos-sync-core = "0.4.0"
-leptos-sync-components = "0.4.0"
+leptos-sync-core = "0.6.0"
+leptos-sync-components = "0.6.0"
 leptos = "0.8.0-rc2"
 ```
 
@@ -168,6 +176,53 @@ while let Some(event) = subscription.recv().await {
         _ => {}
     }
 }
+```
+
+## 🎮 Running the Collaborative Demos
+
+Experience the power of CRDTs with our interactive demos:
+
+### Text Editor Demo (RGA)
+```bash
+cd examples/text_editor_demo
+trunk serve
+# Access at: http://localhost:3000/
+```
+
+### Task Manager Demo (LSEQ)
+```bash
+cd examples/task_manager_demo
+trunk serve
+# Access at: http://localhost:3001/
+```
+
+### Document Editor Demo (Yjs Tree)
+```bash
+cd examples/document_editor_demo
+trunk serve
+# Access at: http://localhost:8082/
+```
+
+### Project Manager Demo (DAG)
+```bash
+cd examples/project_manager_demo
+trunk serve
+# Access at: http://localhost:8083/
+```
+
+### Run All Demos
+```bash
+# Terminal 1 - Text Editor
+cd examples/text_editor_demo && trunk serve
+
+# Terminal 2 - Task Manager  
+cd examples/task_manager_demo && trunk serve
+
+# Terminal 3 - Document Editor
+cd examples/document_editor_demo && trunk serve
+
+# Terminal 4 - Project Manager
+cd examples/project_manager_demo && trunk serve
 ```
 
 ## 🏗️ Architecture

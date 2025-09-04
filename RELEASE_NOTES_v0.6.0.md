@@ -1,5 +1,7 @@
 # Release Notes - leptos-sync v0.6.0
 
+> **⚠️ Generated Code Disclaimer**: This release and the associated demo applications contain code generated with the assistance of AI tools. While the core functionality has been thoroughly tested and validated, please review all code before use in production environments.
+
 **Release Date**: January 30, 2025  
 **Version**: 0.6.0  
 **Codename**: "Collaborative Demos"

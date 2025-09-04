@@ -1,5 +1,7 @@
 # Collaborative Application Demos
 
+> **⚠️ Generated Code Disclaimer**: This documentation and the associated demo applications contain code generated with the assistance of AI tools. While the core functionality has been thoroughly tested and validated, please review all code before use in production environments.
+
 This document provides comprehensive documentation for the four collaborative application demos built with leptos-sync-core CRDTs.
 
 ## Overview
