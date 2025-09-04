@@ -13,12 +13,16 @@ pub mod storage;
 pub mod sync;
 pub mod transport;
 pub mod devtools;
+pub mod reliability;
 
 // Re-export multi-transport functionality
 pub use transport::multi_transport::{MultiTransport, MultiTransportConfig, TransportType, TransportEnum};
 
 // Re-export devtools functionality
 pub use devtools::{DevTools, DevToolsConfig, DevToolsEvent, DevToolsExport, CrdtInspector, CrdtInspection, SyncStats, TransportStats, PerformanceMetrics};
+
+// Re-export reliability functionality
+pub use reliability::{ReliabilityManager, ReliabilityConfig, ReliabilityError};
 
 pub mod security;
 

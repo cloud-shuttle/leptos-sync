@@ -6,6 +6,8 @@ use thiserror::Error;
 pub mod encryption;
 pub mod compression;
 pub mod hashing;
+pub mod authentication;
+pub mod gdpr;
 
 #[derive(Error, Debug)]
 pub enum SecurityError {
@@ -43,7 +45,7 @@ impl Default for SecurityConfig {
         Self {
             encryption_enabled: true,
             compression_enabled: true,
-            encryption_algorithm: EncryptionAlgorithm::Aes256Gcm,
+            encryption_algorithm: EncryptionAlgorithm::Aes256,
             compression_algorithm: CompressionAlgorithm::Lz4,
             key_derivation: KeyDerivationConfig::default(),
             integrity_checking: true,
@@ -56,6 +58,12 @@ pub use encryption::EncryptionAlgorithm;
 
 /// Re-export compression algorithm from submodule
 pub use compression::CompressionAlgorithm;
+
+/// Re-export authentication types from submodule
+pub use authentication::{AuthenticationManager, AuthProvider, UserSession, User, AuthConfig};
+
+/// Re-export GDPR types from submodule
+pub use gdpr::{GDPRCompliance, DataSubject, DataProcessingPurpose, PersonalDataRecord, AuditLogEntry};
 
 /// Key derivation configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,7 +103,7 @@ pub struct SecurityManager {
 
 impl SecurityManager {
     pub fn new(config: SecurityConfig) -> Result<Self, SecurityError> {
-        let encryption = encryption::EncryptionManager::new(config.encryption_algorithm.clone())?;
+        let encryption = encryption::EncryptionManager::new(config.encryption_algorithm.clone());
         let compression = compression::CompressionManager::new(config.compression_algorithm.clone())?;
         let hashing = hashing::HashManager::new()?;
 
@@ -111,8 +119,7 @@ impl SecurityManager {
     pub async fn secure_data(
         &self,
         data: &[u8],
-        key: &[u8],
-        nonce: Option<&[u8]>,
+        key: &encryption::EncryptionKey,
     ) -> Result<Vec<u8>, SecurityError> {
         let mut processed_data = data.to_vec();
 
@@ -123,7 +130,8 @@ impl SecurityManager {
 
         // Encrypt (if enabled)
         if self.config.encryption_enabled {
-            processed_data = self.encryption.encrypt(&processed_data, key, nonce)?;
+            processed_data = self.encryption.encrypt(&processed_data, key).await
+                .map_err(|e| SecurityError::Encryption(e.to_string()))?;
         }
 
         // Add integrity check (if enabled)
@@ -139,8 +147,7 @@ impl SecurityManager {
     pub async fn unsecure_data(
         &self,
         data: &[u8],
-        key: &[u8],
-        nonce: Option<&[u8]>,
+        key: &encryption::EncryptionKey,
     ) -> Result<Vec<u8>, SecurityError> {
         let mut processed_data = data.to_vec();
 
@@ -164,7 +171,8 @@ impl SecurityManager {
 
         // Decrypt (if enabled)
         if self.config.encryption_enabled {
-            processed_data = self.encryption.decrypt(&processed_data, key, nonce)?;
+            processed_data = self.encryption.decrypt(&processed_data, key).await
+                .map_err(|e| SecurityError::Decryption(e.to_string()))?;
         }
 
         // Decompress (if enabled)
@@ -214,9 +222,13 @@ impl SecurityManager {
         }
     }
 
-    /// Generate a random nonce
+    /// Generate a random nonce (for compatibility)
     pub fn generate_nonce(&self) -> Result<Vec<u8>, SecurityError> {
-        self.encryption.generate_nonce()
+        // Generate a 12-byte nonce for GCM
+        use rand::{Rng, rngs::OsRng};
+        let mut nonce = [0u8; 12];
+        OsRng.fill(&mut nonce);
+        Ok(nonce.to_vec())
     }
 
     /// Get security configuration
@@ -226,7 +238,7 @@ impl SecurityManager {
 
     /// Update security configuration
     pub fn update_config(&mut self, config: SecurityConfig) -> Result<(), SecurityError> {
-        let encryption = encryption::EncryptionManager::new(config.encryption_algorithm.clone())?;
+        let encryption = encryption::EncryptionManager::new(config.encryption_algorithm.clone());
         let compression = compression::CompressionManager::new(config.compression_algorithm.clone())?;
         
         self.config = config;

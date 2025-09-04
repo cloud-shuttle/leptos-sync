@@ -34,6 +34,12 @@ js-sys.workspace = true
 gloo-net = { version = "0.6", features = ["websocket"] }
 gloo-events = "0.2"
 gloo-timers = "0.2"
+sha2 = "0.10"
+sha1 = "0.10"
+md5 = "0.7"
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.47.1", features = ["rt", "macros", "sync", "net", "time"] }

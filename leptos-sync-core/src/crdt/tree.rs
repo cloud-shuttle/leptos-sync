@@ -335,18 +335,23 @@ impl<T: Clone + PartialEq + Eq + Send + Sync> AddWinsTree<T> {
     /// Get descendants of a node (recursive)
     pub fn descendants(&self, id: &NodeId) -> Vec<&TreeNode<T>> {
         let mut descendants = Vec::new();
-        let mut to_visit = vec![id.clone()];
-        
-        while let Some(current_id) = to_visit.pop() {
-            if let Some(node) = self.nodes.get(&current_id) {
-                if !node.metadata.deleted {
-                    descendants.push(node);
-                    to_visit.extend(node.children.iter().cloned());
+        self.collect_descendants(id, &mut descendants);
+        descendants
+    }
+    
+    fn collect_descendants<'a>(&'a self, id: &NodeId, descendants: &mut Vec<&'a TreeNode<T>>) {
+        if let Some(node) = self.nodes.get(id) {
+            if !node.metadata.deleted {
+                for child_id in &node.children {
+                    if let Some(child_node) = self.nodes.get(child_id) {
+                        if !child_node.metadata.deleted {
+                            descendants.push(child_node);
+                            self.collect_descendants(child_id, descendants);
+                        }
+                    }
                 }
             }
         }
-        
-        descendants
     }
 
     /// Check if the tree contains a node
@@ -571,16 +576,19 @@ impl<T: Clone + PartialEq + Eq + Send + Sync> RemoveWinsTree<T> {
     /// Get descendants of a node (recursive)
     pub fn descendants(&self, id: &NodeId) -> Vec<&TreeNode<T>> {
         let mut descendants = Vec::new();
-        let mut to_visit = vec![id.clone()];
-        
-        while let Some(current_id) = to_visit.pop() {
-            if let Some(node) = self.nodes.get(&current_id) {
-                descendants.push(node);
-                to_visit.extend(node.children.iter().cloned());
+        self.collect_descendants(id, &mut descendants);
+        descendants
+    }
+    
+    fn collect_descendants<'a>(&'a self, id: &NodeId, descendants: &mut Vec<&'a TreeNode<T>>) {
+        if let Some(node) = self.nodes.get(id) {
+            for child_id in &node.children {
+                if let Some(child_node) = self.nodes.get(child_id) {
+                    descendants.push(child_node);
+                    self.collect_descendants(child_id, descendants);
+                }
             }
         }
-        
-        descendants
     }
 
     /// Check if the tree contains a node

@@ -27,6 +27,12 @@ pub enum SyncError {
     CrdtError(#[from] std::io::Error),
     #[error("Sync operation failed: {0}")]
     SyncFailed(String),
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
+    #[error("GDPR error: {0}")]
+    GDPRError(String),
 }
 
 /// Legacy synchronization message types (for backward compatibility)
