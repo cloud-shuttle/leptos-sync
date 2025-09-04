@@ -50,7 +50,7 @@ authors = ["Cloud Shuttle <team@cloud-shuttle.com>"]
 description = "Local-first, offline-capable data synchronization for Leptos applications"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/cloud-shuttle/leptos-sync"
-keywords = ["leptos", "sync", "crdt", "local-first", "offline", "wasm", "web"]
+keywords = ["leptos", "sync", "crdt", "local-first", "offline"]
 categories = ["web-programming", "asynchronous", "data-structures"]
 
 [[workspace.metadata.leptos]]
