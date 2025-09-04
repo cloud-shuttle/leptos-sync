@@ -12,12 +12,15 @@ A **production-ready**, local-first synchronization library for [Leptos](https:/
 
 ### ✅ **Core Functionality (Production Ready)**
 - **Local-First Architecture**: Full offline functionality with eventual consistency
-- **CRDT Implementation**: Conflict-free replicated data types (LWW, MV-Register, GCounter)
+- **CRDT Implementation**: Conflict-free replicated data types (LWW, MV-Register, GCounter, List, Tree, Graph)
+- **DevTools**: Comprehensive debugging and monitoring system
+- **Multi-Transport**: Dynamic transport switching with automatic fallbacks
 - **Advanced Conflict Resolution**: Multiple strategies with custom conflict handling
 - **Real-time Synchronization**: Live updates with presence detection
 - **Security Features**: Encryption, compression, and secure key derivation
 - **Comprehensive Error Handling**: Retry logic with circuit breakers
 - **Storage Abstraction**: Hybrid storage with automatic fallback (OPFS → IndexedDB → LocalStorage)
+- **Performance Optimizations**: Memory pooling, serialization, indexed storage
 
 ### ⚠️ **Platform-Specific Features**
 - **WebSocket Transport**: Fully implemented interface, optimized for WASM targets
@@ -30,7 +33,8 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-leptos-sync-core = "0.1.0"
+leptos-sync-core = "0.4.0"
+leptos-sync-components = "0.4.0"
 leptos = "0.8.0-rc2"
 ```
 
@@ -232,9 +236,42 @@ cargo test --package leptos-sync-core --lib security
 
 ## 📚 Documentation
 
-- [Architecture Guide](docs/architecture.md) - Detailed technical architecture
-- [API Reference](https://docs.rs/leptos-sync-core) - Complete API documentation
-- [Examples](examples/) - Working examples and use cases
+- **[Getting Started Guide](docs/getting-started.md)**: Complete setup and usage guide
+- **[DevTools Guide](docs/devtools-guide.md)**: Comprehensive debugging and monitoring
+- **[API Reference](https://docs.rs/leptos-sync-core)**: Full API documentation
+- **[Examples](examples/)**: Working code examples
+- **[Performance Analysis](docs/performance-analysis.md)**: Benchmark results and optimization guide
+- **[Roadmap to v1.0](docs/ROADMAP_SUMMARY.md)**: Strategic roadmap and vision
+
+## 🗺️ **Roadmap to v1.0**
+
+We're building the **definitive local-first synchronization library** for Rust. Our roadmap takes us from the solid foundation of v0.4.0 to enterprise-grade v1.0:
+
+### **Phase 1: Foundation Solidification (v0.5.0 - v0.6.0)**
+- **Custom CRDT Builder**: Framework for user-defined CRDT types
+- **Advanced CRDT Types**: RGA, LSEQ, Yjs-style trees, DAG graphs
+- **Production Reliability**: Error recovery, data integrity, monitoring
+- **Security & Compliance**: Encryption, authentication, GDPR compliance
+
+### **Phase 2: Advanced Features (v0.7.0 - v0.8.0)**
+- **AI-Powered Intelligence**: ML-based conflict resolution, predictive sync
+- **Multi-Cloud Support**: AWS, GCP, Azure with automatic failover
+- **Edge Computing**: CDN integration, global distribution
+- **Performance**: Sub-10ms sync operations, <1MB memory footprint
+
+### **Phase 3: Ecosystem Integration (v0.9.0)**
+- **Database Integrations**: PostgreSQL, MongoDB, Redis, SQLite
+- **Framework Integrations**: Axum, Warp, Actix-web, Rocket
+- **Mobile & Desktop**: iOS, Android, Tauri, Electron support
+- **Cloud Deployments**: Vercel, Netlify, Railway integration
+
+### **Phase 4: Enterprise Ready (v1.0.0)**
+- **API Stability**: 2+ year guarantee, LTS releases
+- **Enterprise Features**: SOC2 compliance, SLA guarantees
+- **Global Scale**: 99.99% uptime, zero data loss
+- **Community**: 1000+ stars, 100+ production deployments
+
+**Target**: v1.0.0 by Q4 2025 - The definitive local-first sync library for Rust! 🚀
 - [Deployment Guide](deployment/) - Production deployment instructions
 
 ## 🚀 Performance
