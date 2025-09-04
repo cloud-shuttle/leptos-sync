@@ -6,10 +6,20 @@
 pub mod collection;
 pub mod crdt;
 pub mod error;
+pub mod memory_pool;
 pub mod query;
+pub mod serialization;
 pub mod storage;
 pub mod sync;
 pub mod transport;
+pub mod devtools;
+
+// Re-export multi-transport functionality
+pub use transport::multi_transport::{MultiTransport, MultiTransportConfig, TransportType, TransportEnum};
+
+// Re-export devtools functionality
+pub use devtools::{DevTools, DevToolsConfig, DevToolsEvent, DevToolsExport, CrdtInspector, CrdtInspection, SyncStats, TransportStats, PerformanceMetrics};
+
 pub mod security;
 
 #[cfg(test)]

@@ -65,6 +65,11 @@ pub trait Mergeable: Clone + Send + Sync {
     fn has_conflict(&self, other: &Self) -> bool;
 }
 
+/// Trait for CRDTs that have a replica ID
+pub trait CRDT {
+    fn replica_id(&self) -> &ReplicaId;
+}
+
 /// Last-Write-Wins Register
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LwwRegister<T> {
@@ -131,6 +136,12 @@ impl<T: Clone + PartialEq + Send + Sync> Mergeable for LwwRegister<T> {
     
     fn has_conflict(&self, other: &Self) -> bool {
         self.timestamp == other.timestamp && self.replica_id != other.replica_id
+    }
+}
+
+impl<T> CRDT for LwwRegister<T> {
+    fn replica_id(&self) -> &ReplicaId {
+        &self.replica_id
     }
 }
 
@@ -236,6 +247,15 @@ where
     }
 }
 
+impl<K, V> CRDT for LwwMap<K, V> {
+    fn replica_id(&self) -> &ReplicaId {
+        // LwwMap doesn't have a single replica ID, so we'll use a default
+        // In practice, this might need to be handled differently
+        static DEFAULT_REPLICA: std::sync::LazyLock<ReplicaId> = std::sync::LazyLock::new(|| ReplicaId::from(uuid::Uuid::nil()));
+        &DEFAULT_REPLICA
+    }
+}
+
 /// Counter that can be incremented/decremented
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GCounter {
@@ -282,6 +302,15 @@ impl Mergeable for GCounter {
     fn has_conflict(&self, _other: &Self) -> bool {
         // G-Counters are conflict-free by design
         false
+    }
+}
+
+impl CRDT for GCounter {
+    fn replica_id(&self) -> &ReplicaId {
+        // GCounter doesn't have a single replica ID, so we'll use a default
+        // In practice, this might need to be handled differently
+        static DEFAULT_REPLICA: std::sync::LazyLock<ReplicaId> = std::sync::LazyLock::new(|| ReplicaId::from(uuid::Uuid::nil()));
+        &DEFAULT_REPLICA
     }
 }
 

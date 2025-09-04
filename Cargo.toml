@@ -4,7 +4,8 @@ members = [
     "leptos-sync-macros", 
     "leptos-sync-components",
     "leptos-sync-examples",
-    "tests/integration"
+    "tests/integration",
+    "examples/devtools_demo"
 ]
 
 resolver = "2"
@@ -44,7 +45,7 @@ tokio-test = "0.4"
 tempfile = "3.0"
 
 [workspace.package]
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 authors = ["Cloud Shuttle <team@cloud-shuttle.com>"]
 description = "Local-first, offline-capable data synchronization for Leptos applications"

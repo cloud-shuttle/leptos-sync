@@ -8,6 +8,7 @@ use thiserror::Error;
 
 pub mod websocket;
 pub mod memory;
+pub mod multi_transport;
 
 #[derive(Error, Debug)]
 pub enum TransportError {

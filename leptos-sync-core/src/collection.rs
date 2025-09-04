@@ -231,6 +231,101 @@ where
         Ok(())
     }
 
+    /// Insert or update multiple items in a batch
+    pub async fn insert_batch(&self, items: impl IntoIterator<Item = (String, T)>) -> Result<(), CollectionError> {
+        let items: Vec<_> = items.into_iter().collect();
+        
+        // Store locally first in batch
+        for (key, value) in &items {
+            self.storage.set(key, value).await?;
+        }
+
+        // Sync if auto-sync is enabled
+        if self.auto_sync {
+            let mut engine = self.sync_engine.write().await;
+            for (key, value) in items {
+                engine.sync(&key, &value).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Update multiple items in a batch
+    pub async fn update_batch(&self, updates: impl IntoIterator<Item = (String, T)>) -> Result<(), CollectionError> {
+        let updates: Vec<_> = updates.into_iter().collect();
+        
+        // Verify all keys exist before updating
+        for (key, _) in &updates {
+            if !self.storage.contains_key(key).await? {
+                return Err(CollectionError::NotFound(key.clone()));
+            }
+        }
+        
+        // Update locally in batch
+        for (key, value) in &updates {
+            self.storage.set(key, value).await?;
+        }
+
+        // Sync if auto-sync is enabled
+        if self.auto_sync {
+            let mut engine = self.sync_engine.write().await;
+            for (key, value) in updates {
+                engine.sync(&key, &value).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Remove multiple items in a batch
+    pub async fn remove_batch(&self, keys: impl IntoIterator<Item = String>) -> Result<(), CollectionError> {
+        let keys: Vec<_> = keys.into_iter().collect();
+        
+        // Remove locally in batch
+        for key in &keys {
+            self.storage.remove(key).await?;
+        }
+
+        // Sync if auto-sync is enabled
+        if self.auto_sync {
+            let mut engine = self.sync_engine.write().await;
+            for key in keys {
+                // Note: In a real implementation, you'd want to handle deletion sync
+                // This is a simplified version
+                engine.sync(&key, &T::default()).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get multiple items by keys
+    pub async fn get_batch(&self, keys: impl IntoIterator<Item = String>) -> Result<Vec<(String, Option<T>)>, CollectionError> {
+        let keys: Vec<_> = keys.into_iter().collect();
+        let mut results = Vec::new();
+        
+        for key in keys {
+            let value = self.storage.get(&key).await?;
+            results.push((key, value));
+        }
+        
+        Ok(results)
+    }
+
+    /// Check if multiple keys exist
+    pub async fn contains_keys(&self, keys: impl IntoIterator<Item = String>) -> Result<Vec<(String, bool)>, CollectionError> {
+        let keys: Vec<_> = keys.into_iter().collect();
+        let mut results = Vec::new();
+        
+        for key in keys {
+            let exists = self.storage.contains_key(&key).await?;
+            results.push((key, exists));
+        }
+        
+        Ok(results)
+    }
+
     /// Get all peers
     pub async fn peers(&self) -> Result<impl Iterator<Item = (ReplicaId, crate::sync::PeerInfo)>, CollectionError> {
         let engine = self.sync_engine.read().await;
@@ -345,5 +440,92 @@ mod tests {
             .build::<LwwRegister<String>>();
 
         assert!(collection.auto_sync);
+    }
+
+    #[tokio::test]
+    async fn test_collection_batch_operations() {
+        let storage = Storage::memory();
+        let transport = InMemoryTransport::new();
+        let collection = LocalFirstCollection::<LwwRegister<String>, _>::new(storage, transport);
+
+        // Test batch insert
+        let items = vec![
+            ("key1".to_string(), LwwRegister::new("value1".to_string(), ReplicaId::default())),
+            ("key2".to_string(), LwwRegister::new("value2".to_string(), ReplicaId::default())),
+            ("key3".to_string(), LwwRegister::new("value3".to_string(), ReplicaId::default())),
+        ];
+        
+        assert!(collection.insert_batch(items.clone()).await.is_ok());
+        
+        // Test batch get
+        let keys = vec!["key1".to_string(), "key2".to_string(), "key3".to_string()];
+        let results = collection.get_batch(keys).await.unwrap();
+        assert_eq!(results.len(), 3);
+        
+        // Test batch contains
+        let exists_results = collection.contains_keys(vec!["key1".to_string(), "key2".to_string(), "key4".to_string()]).await.unwrap();
+        assert_eq!(exists_results, vec![
+            ("key1".to_string(), true),
+            ("key2".to_string(), true),
+            ("key4".to_string(), false),
+        ]);
+        
+        // Test batch update
+        let updates = vec![
+            ("key1".to_string(), LwwRegister::new("updated1".to_string(), ReplicaId::default())),
+            ("key2".to_string(), LwwRegister::new("updated2".to_string(), ReplicaId::default())),
+        ];
+        assert!(collection.update_batch(updates).await.is_ok());
+        
+        // Test batch remove
+        let keys_to_remove = vec!["key1".to_string(), "key2".to_string()];
+        assert!(collection.remove_batch(keys_to_remove).await.is_ok());
+        
+        // Verify removal
+        let remaining = collection.get_batch(vec!["key3".to_string()]).await.unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].0, "key3");
+    }
+
+    #[tokio::test]
+    async fn test_collection_batch_performance() {
+        let storage = Storage::memory();
+        let transport = InMemoryTransport::new();
+        let collection = LocalFirstCollection::<LwwRegister<String>, _>::new(storage, transport);
+
+        // Create 1000 items for performance testing
+        let items: Vec<_> = (0..1000)
+            .map(|i| (
+                format!("key{}", i),
+                LwwRegister::new(format!("value{}", i), ReplicaId::default())
+            ))
+            .collect();
+
+        // Measure batch insert performance
+        let start = std::time::Instant::now();
+        assert!(collection.insert_batch(items).await.is_ok());
+        let batch_duration = start.elapsed();
+
+        // Measure individual insert performance for comparison
+        let individual_items: Vec<_> = (1000..2000)
+            .map(|i| (
+                format!("key{}", i),
+                LwwRegister::new(format!("value{}", i), ReplicaId::default())
+            ))
+            .collect();
+
+        let start = std::time::Instant::now();
+        for (key, value) in &individual_items {
+            assert!(collection.insert(key, value).await.is_ok());
+        }
+        let individual_duration = start.elapsed();
+
+        // Batch operations should be significantly faster
+        println!("Batch insert (1000 items): {:?}", batch_duration);
+        println!("Individual insert (1000 items): {:?}", individual_duration);
+        
+        // Verify all items were inserted
+        let total_count = collection.len().await.unwrap();
+        assert_eq!(total_count, 2000);
     }
 }
