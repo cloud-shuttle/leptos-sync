@@ -11,8 +11,8 @@ repository.workspace = true
 
 [dependencies]
 leptos.workspace = true
-leptos-sync-core = { path = "../leptos-sync-core" }
-leptos-sync-components = { path = "../leptos-sync-components" }
+leptos-sync-core = { version = "0.2.0", path = "../leptos-sync-core" }
+leptos-sync-components = { version = "0.2.0", path = "../leptos-sync-components" }
 web-sys.workspace = true
 serde.workspace = true
 uuid.workspace = true
