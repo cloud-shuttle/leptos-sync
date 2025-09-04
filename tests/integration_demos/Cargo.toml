@@ -1,0 +1,12 @@
+[package]
+name = "integration_demos"
+version = "0.1.0"
+edition = "2021"
+
+[[test]]
+name = "integration_demos"
+path = "mod.rs"
+
+[dependencies]
+leptos-sync-core = { version = "0.6.0", path = "../../leptos-sync-core" }
+uuid = { version = "1.0", features = ["v4"] }

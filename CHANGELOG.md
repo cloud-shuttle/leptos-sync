@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0] - 2025-01-30
+
+### 🚀 Collaborative Application Demos - Real-World CRDT Showcase
+
+#### Text Editor Demo (RGA)
+- **Real-time collaborative text editing** using RGA (Replicated Growable Array)
+- **Character-level operations** with conflict-free merging
+- **Position-based ordering** for consistent text synchronization
+- **Live collaboration** between multiple users
+- **Web-based interface** built with Leptos
+
+#### Task Manager Demo (LSEQ)
+- **Collaborative task management** using LSEQ (Logoot Sequence)
+- **Ordered task lists** with priority and status tracking
+- **Task CRUD operations** with conflict-free synchronization
+- **Priority system** (Low, Medium, High, Critical)
+- **Status tracking** (Not Started, In Progress, Completed, Blocked)
+
+#### Document Editor Demo (Yjs Tree)
+- **Hierarchical document editing** using Yjs Tree CRDT
+- **Multiple node types** (Section, Paragraph, Heading, List, Code Block)
+- **Tree-based content organization** with parent-child relationships
+- **Collaborative document editing** with real-time synchronization
+- **Structured content management** for complex documents
+
+#### Project Manager Demo (DAG)
+- **Project management with dependencies** using DAG (Directed Acyclic Graph)
+- **Task dependency management** with conflict-free resolution
+- **Project organization** with hierarchical task structures
+- **Dependency visualization** and relationship management
+- **Collaborative project coordination** between team members
+
+#### Integration & Testing
+- **Comprehensive integration tests** for all CRDT implementations
+- **Cross-demo compatibility testing** to ensure CRDT interoperability
+- **Performance benchmarking** for all demo applications
+- **Test-driven development** approach for all demo features
+
+#### Documentation & Examples
+- **Complete documentation** for all collaborative demos
+- **API usage examples** with code samples
+- **Architecture explanations** for each CRDT type
+- **Performance characteristics** and optimization guidelines
+- **Best practices** for collaborative application development
+
+#### Demo Infrastructure
+- **Web-based demos** accessible via HTTP servers
+- **Leptos integration** for reactive web interfaces
+- **WASM compilation** for browser-based execution
+- **Development server setup** with Trunk and Python HTTP servers
+- **Cross-platform compatibility** for all demo applications
+
+### 🔧 Technical Improvements
+- **Enhanced CRDT implementations** with improved performance
+- **Better error handling** across all demo applications
+- **Optimized merge operations** for large datasets
+- **Improved memory management** for long-running applications
+- **Enhanced synchronization** with better conflict resolution
+
+### 📚 Documentation
+- **Comprehensive demo documentation** with usage examples
+- **API reference** for all CRDT types
+- **Architecture guides** for collaborative applications
+- **Performance optimization** guidelines
+- **Troubleshooting guides** for common issues
+
 ## [0.5.0] - 2025-01-30
 
 ### 🔐 Security & Compliance - Enterprise-Grade Protection
