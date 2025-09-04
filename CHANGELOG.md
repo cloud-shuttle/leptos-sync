@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2025-01-03
+
+### Fixed
+- **Benchmark Infrastructure**: Fixed panic during benchmark cleanup by consolidating criterion groups
+- **Benchmark Execution**: All 30+ benchmarks now run successfully without destructor panics
+- **Performance Testing**: Users can now run comprehensive performance benchmarks reliably
+
+### Technical Improvements
+- **Simplified Benchmark Structure**: Consolidated multiple criterion groups into single group
+- **Clean Benchmark Lifecycle**: Eliminated cleanup conflicts between benchmark groups
+- **Reliable Performance Measurement**: Stable benchmark execution for development and CI
+
 ## [0.3.0] - 2025-01-03
 
 ### Added
