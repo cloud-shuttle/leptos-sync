@@ -7,6 +7,7 @@ mod crdt_basic;
 pub mod list;
 pub mod tree;
 pub mod graph;
+pub mod builder;
 
 // Re-export basic CRDTs
 pub use crdt_basic::{LwwRegister, LwwMap, GCounter, ReplicaId, Mergeable, CRDT};
@@ -24,6 +25,12 @@ pub use tree::{
 pub use graph::{
     VertexId, EdgeId, VertexMetadata, EdgeMetadata, Vertex, Edge,
     GraphStrategy, GraphConfig, AddWinsGraph, RemoveWinsGraph,
+};
+
+// Re-export builder functionality
+pub use builder::{
+    CrdtBuilder, CrdtBuilderConfig, FieldConfig, CrdtStrategy, 
+    CustomCrdt, GenericCrdtField, CrdtField, BuilderError
 };
 
 #[cfg(test)]
@@ -90,5 +97,60 @@ mod tests {
         let _: &dyn CRDT = &list;
         let _: &dyn CRDT = &tree;
         let _: &dyn CRDT = &graph;
+    }
+
+    #[test]
+    fn test_custom_crdt_builder_integration() {
+        let replica = create_replica(1);
+        
+        // Create a custom CRDT using the builder
+        let config = CrdtBuilder::new("UserProfile".to_string())
+            .add_field("name".to_string(), CrdtStrategy::Lww)
+            .add_field("age".to_string(), CrdtStrategy::Lww)
+            .add_field("friends".to_string(), CrdtStrategy::AddWins)
+            .add_optional_field("bio".to_string(), CrdtStrategy::Lww, 
+                serde_json::Value::String("No bio yet".to_string()))
+            .build();
+        
+        let mut profile = CustomCrdt::new(config, replica);
+        
+        // Set field values
+        profile.set_field("name", serde_json::Value::String("Alice".to_string())).unwrap();
+        profile.set_field("age", serde_json::Value::Number(serde_json::Number::from(25))).unwrap();
+        profile.set_field("friends", serde_json::Value::Array(vec![
+            serde_json::Value::String("Bob".to_string()),
+            serde_json::Value::String("Charlie".to_string()),
+        ])).unwrap();
+        
+        // Test field access
+        assert_eq!(profile.get_field("name"), Some(&serde_json::Value::String("Alice".to_string())));
+        assert_eq!(profile.get_field("age"), Some(&serde_json::Value::Number(serde_json::Number::from(25))));
+        assert_eq!(profile.get_field("bio"), Some(&serde_json::Value::String("No bio yet".to_string())));
+        
+        // Test CRDT trait implementation
+        let _: &dyn CRDT = &profile;
+        
+        // Test mergeable trait
+        let mut profile2 = profile.clone();
+        
+        // Small delay to ensure different timestamp for LWW
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        
+        profile2.set_field("name", serde_json::Value::String("Alice Updated".to_string())).unwrap();
+        profile2.set_field("friends", serde_json::Value::Array(vec![
+            serde_json::Value::String("David".to_string()),
+        ])).unwrap();
+        
+        // Merge profiles
+        profile.merge(&profile2).unwrap();
+        
+        // Check merged values
+        assert_eq!(profile.get_field("name"), Some(&serde_json::Value::String("Alice Updated".to_string())));
+        // Friends should be combined (AddWins strategy)
+        if let Some(friends) = profile.get_field("friends") {
+            if let Some(friends_array) = friends.as_array() {
+                assert_eq!(friends_array.len(), 3); // Bob, Charlie, David
+            }
+        }
     }
 }
