@@ -387,7 +387,7 @@ impl GDPRCompliance {
         use rand::{Rng, rngs::OsRng};
         use base64::{Engine as _, engine::general_purpose};
         let mut rng = OsRng;
-        let random_bytes: [u8; 16] = rng.gen();
+        let random_bytes: [u8; 16] = rng.r#gen();
         format!("record_{}", general_purpose::STANDARD.encode(random_bytes))
     }
 
@@ -396,7 +396,7 @@ impl GDPRCompliance {
         use rand::{Rng, rngs::OsRng};
         use base64::{Engine as _, engine::general_purpose};
         let mut rng = OsRng;
-        let random_bytes: [u8; 16] = rng.gen();
+        let random_bytes: [u8; 16] = rng.r#gen();
         format!("audit_{}", general_purpose::STANDARD.encode(random_bytes))
     }
 

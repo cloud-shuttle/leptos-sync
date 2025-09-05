@@ -371,7 +371,7 @@ where
     }
 
     /// Get all peers
-    pub async fn peers(&self) -> impl Iterator<Item = (ReplicaId, PeerInfo)> {
+    pub async fn peers(&self) -> impl Iterator<Item = (ReplicaId, PeerInfo)> + 'static + use<Tr> {
         let peers = self.peers.read().await;
         peers.clone().into_iter()
     }

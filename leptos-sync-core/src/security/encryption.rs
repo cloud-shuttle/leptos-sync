@@ -250,7 +250,7 @@ impl KeyManager {
     /// Generate unique key ID
     fn generate_key_id(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 16] = rng.gen();
+        let random_bytes: [u8; 16] = rng.r#gen();
         format!("key_{}", general_purpose::STANDARD.encode(random_bytes))
     }
 

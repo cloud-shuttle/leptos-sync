@@ -422,35 +422,35 @@ impl AuthenticationManager {
     /// Generate user ID
     fn generate_user_id(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 16] = rng.gen();
+        let random_bytes: [u8; 16] = rng.r#gen();
         format!("user_{}", general_purpose::STANDARD.encode(random_bytes))
     }
 
     /// Generate salt
     fn generate_salt(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 16] = rng.gen();
+        let random_bytes: [u8; 16] = rng.r#gen();
         general_purpose::STANDARD.encode(random_bytes)
     }
 
     /// Generate session token
     fn generate_session_token(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 32] = rng.gen();
+        let random_bytes: [u8; 32] = rng.r#gen();
         general_purpose::STANDARD.encode(random_bytes)
     }
 
     /// Generate reset token
     fn generate_reset_token(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 32] = rng.gen();
+        let random_bytes: [u8; 32] = rng.r#gen();
         general_purpose::STANDARD.encode(random_bytes)
     }
 
     /// Generate MFA secret
     fn generate_mfa_secret(&self) -> String {
         let mut rng = OsRng;
-        let random_bytes: [u8; 20] = rng.gen();
+        let random_bytes: [u8; 20] = rng.r#gen();
         general_purpose::STANDARD.encode(random_bytes)
     }
 
