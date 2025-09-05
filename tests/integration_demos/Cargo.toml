@@ -8,5 +8,5 @@ name = "integration_demos"
 path = "mod.rs"
 
 [dependencies]
-leptos-sync-core = { version = "0.6.0", path = "../../leptos-sync-core" }
+leptos-sync-core = { workspace = true, path = "../../leptos-sync-core" }
 uuid = { version = "1.0", features = ["v4"] }

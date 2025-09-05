@@ -12,4 +12,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 leptos.workspace = true
-leptos-sync-core = { version = "0.6.0", path = "../leptos-sync-core" }
+leptos-sync-core = { workspace = true, path = "../leptos-sync-core" }

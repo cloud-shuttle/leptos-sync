@@ -20,6 +20,9 @@ resolver = "2"
 [workspace.dependencies]
 leptos = "0.8.6"
 leptos_ws = "0.8.0-rc2"
+leptos-sync-core = { version = "0.7.0", path = "leptos-sync-core" }
+leptos-sync-components = { version = "0.7.0", path = "leptos-sync-components" }
+leptos-sync-macros = { version = "0.7.0", path = "leptos-sync-macros" }
 web-sys = { version = "0.3", features = [
     "Window", 
     "Storage",

@@ -41,9 +41,9 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-leptos-sync-core = "0.6.0"
-leptos-sync-components = "0.6.0"
-leptos = "0.8.0-rc2"
+leptos-sync-core = "0.7.0"
+leptos-sync-components = "0.7.0"
+leptos = "0.8.6"
 ```
 
 ## 🎯 Quick Start

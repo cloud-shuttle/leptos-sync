@@ -9,8 +9,8 @@ path = "src/main.rs"
 
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
-leptos-sync-core = { version = "0.6.0", path = "../../leptos-sync-core" }
-leptos-sync-components = { version = "0.6.0", path = "../../leptos-sync-components" }
+leptos-sync-core = { workspace = true, path = "../../leptos-sync-core" }
+leptos-sync-components = { workspace = true, path = "../../leptos-sync-components" }
 web-sys.workspace = true
 serde.workspace = true
 uuid.workspace = true
