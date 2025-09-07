@@ -253,7 +253,10 @@ mod tests {
     async fn test_reliability_manager_creation() {
         let mut manager = ReliabilityManager::new();
         
-        // Verify all components are created
+        // Initialize the manager
+        manager.initialize().await.unwrap();
+        
+        // Verify all components are created and initialized
         assert!(manager.error_recovery.is_initialized());
         assert!(manager.data_integrity.is_initialized());
         assert!(manager.monitoring.is_initialized());
@@ -267,7 +270,10 @@ mod tests {
         let config = ReliabilityConfig::default();
         let mut manager = ReliabilityManager::with_config(config);
         
-        // Verify all components are created with config
+        // Initialize the manager
+        manager.initialize().await.unwrap();
+        
+        // Verify all components are created with config and initialized
         assert!(manager.error_recovery.is_initialized());
         assert!(manager.data_integrity.is_initialized());
         assert!(manager.monitoring.is_initialized());

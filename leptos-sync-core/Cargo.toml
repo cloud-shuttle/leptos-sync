@@ -15,6 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 leptos.workspace = true
 leptos_ws.workspace = true
+leptos-ws-pro.workspace = true
 
 web-sys.workspace = true
 wasm-bindgen.workspace = true

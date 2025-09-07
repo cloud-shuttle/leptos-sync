@@ -23,6 +23,7 @@ impl IndexedDbStorage {
     }
 
     /// Get the localStorage fallback
+    #[cfg(target_arch = "wasm32")]
     fn get_local_storage() -> Result<Storage, StorageError> {
         let window = window().ok_or_else(|| {
             StorageError::OperationFailed("No window available".to_string())
@@ -37,7 +38,14 @@ impl IndexedDbStorage {
         Ok(storage)
     }
 
+    /// Get the localStorage fallback (non-WASM - always fails to trigger fallback)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_local_storage() -> Result<Storage, StorageError> {
+        Err(StorageError::OperationFailed("localStorage not available in non-WASM environment".to_string()))
+    }
+
     /// Get a value from localStorage
+    #[cfg(target_arch = "wasm32")]
     fn get_from_local_storage<T: DeserializeOwned>(key: &str) -> Result<Option<T>, StorageError> {
         let storage = Self::get_local_storage()?;
         
@@ -54,6 +62,7 @@ impl IndexedDbStorage {
     }
 
     /// Set a value in localStorage
+    #[cfg(target_arch = "wasm32")]
     fn set_to_local_storage<T: Serialize>(key: &str, value: &T) -> Result<(), StorageError> {
         let storage = Self::get_local_storage()?;
         
@@ -68,6 +77,7 @@ impl IndexedDbStorage {
     }
 
     /// Remove a value from localStorage
+    #[cfg(target_arch = "wasm32")]
     fn remove_from_local_storage(key: &str) -> Result<(), StorageError> {
         let storage = Self::get_local_storage()?;
         
@@ -79,6 +89,7 @@ impl IndexedDbStorage {
     }
 
     /// Get all keys from localStorage
+    #[cfg(target_arch = "wasm32")]
     fn get_keys_from_local_storage() -> Result<Vec<String>, StorageError> {
         let storage = Self::get_local_storage()?;
         let length = storage.length().map_err(|_| {
@@ -95,6 +106,30 @@ impl IndexedDbStorage {
         }
         
         Ok(keys)
+    }
+
+    /// Get a value from localStorage (non-WASM - always fails to trigger fallback)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_from_local_storage<T: DeserializeOwned>(_key: &str) -> Result<Option<T>, StorageError> {
+        Err(StorageError::OperationFailed("localStorage not available in non-WASM environment".to_string()))
+    }
+
+    /// Set a value in localStorage (non-WASM - always fails to trigger fallback)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn set_to_local_storage<T: Serialize>(_key: &str, _value: &T) -> Result<(), StorageError> {
+        Err(StorageError::OperationFailed("localStorage not available in non-WASM environment".to_string()))
+    }
+
+    /// Remove a value from localStorage (non-WASM - always fails to trigger fallback)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn remove_from_local_storage(_key: &str) -> Result<(), StorageError> {
+        Err(StorageError::OperationFailed("localStorage not available in non-WASM environment".to_string()))
+    }
+
+    /// Get all keys from localStorage (non-WASM - always fails to trigger fallback)
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_keys_from_local_storage() -> Result<Vec<String>, StorageError> {
+        Err(StorageError::OperationFailed("localStorage not available in non-WASM environment".to_string()))
     }
 }
 
@@ -247,6 +282,7 @@ impl IndexedDbStorage {
 mod tests {
     use super::*;
 
+    #[cfg(target_arch = "wasm32")]
     #[tokio::test]
     async fn test_indexeddb_storage_fallback() {
         let storage = IndexedDbStorage::new(
@@ -265,6 +301,7 @@ mod tests {
         assert!(storage.remove("key1").await.is_ok());
     }
 
+    #[cfg(target_arch = "wasm32")]
     #[tokio::test]
     async fn test_indexeddb_storage_clone() {
         let storage = IndexedDbStorage::new(

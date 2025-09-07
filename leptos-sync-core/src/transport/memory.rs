@@ -31,24 +31,28 @@ impl InMemoryTransport {
 impl SyncTransport for InMemoryTransport {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        if !self.connected {
-            return Err(TransportError::NotConnected);
-        }
-        
-        let mut queue = self.message_queue.write().await;
-        queue.push_back(data.to_vec());
-        Ok(())
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            if !self.connected {
+                return Err(TransportError::NotConnected);
+            }
+            
+            let mut queue = self.message_queue.write().await;
+            queue.push_back(data.to_vec());
+            Ok(())
+        })
     }
 
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        if !self.connected {
-            return Err(TransportError::NotConnected);
-        }
-        
-        let mut queue = self.message_queue.write().await;
-        let messages: Vec<Vec<u8>> = queue.drain(..).collect();
-        Ok(messages)
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            if !self.connected {
+                return Err(TransportError::NotConnected);
+            }
+            
+            let mut queue = self.message_queue.write().await;
+            let messages: Vec<Vec<u8>> = queue.drain(..).collect();
+            Ok(messages)
+        })
     }
 
     fn is_connected(&self) -> bool {

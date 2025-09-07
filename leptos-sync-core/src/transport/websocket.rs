@@ -56,19 +56,19 @@ impl WebSocketTransport {
 impl SyncTransport for WebSocketTransport {
     type Error = TransportError;
 
-    fn send(&self, _data: &[u8]) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
-        async move {
+    fn send<'a>(&'a self, _data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
             // For now, just log that we would send
             tracing::debug!("Would send data via WebSocket");
             Ok(())
-        }
+        })
     }
 
-    fn receive(&self) -> impl std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send {
-        async move {
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
             // For now, just return empty messages
             Ok(Vec::new())
-        }
+        })
     }
 
     fn is_connected(&self) -> bool {

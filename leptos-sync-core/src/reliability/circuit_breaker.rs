@@ -96,7 +96,7 @@ impl CircuitBreaker {
                 Ok(result.unwrap())
             }
             Err(_) => {
-                state.record_failure();
+                state.record_failure(self.config.failure_threshold);
                 Err(BreakerError::OperationFailed)
             }
         }
@@ -120,7 +120,7 @@ impl CircuitBreaker {
         }
         
         let mut state = self.state.write().await;
-        state.record_failure();
+        state.record_failure(self.config.failure_threshold);
         Ok(())
     }
     
@@ -207,12 +207,12 @@ impl CircuitBreakerState {
     }
     
     /// Record a failed operation
-    fn record_failure(&mut self) {
+    fn record_failure(&mut self, failure_threshold: usize) {
         self.failure_count += 1;
         self.success_count = 0;
         self.last_failure_time = Some(Instant::now());
         
-        if self.failure_count >= 5 {
+        if self.failure_count >= failure_threshold {
             self.state = CircuitState::Open;
         } else if self.state == CircuitState::HalfOpen {
             self.state = CircuitState::Open;

@@ -103,7 +103,7 @@ impl ErrorRecovery {
                     // Success - reset circuit breaker and update stats
                     breaker.record_success();
                     let mut stats = self.stats.write().await;
-                    stats.record_success(attempt, start_time.elapsed());
+                    stats.record_success(attempt - 1, start_time.elapsed());
                     return Ok(value);
                 }
                 Err(error) => {

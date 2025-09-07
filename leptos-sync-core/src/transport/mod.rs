@@ -1,6 +1,5 @@
 //! Transport layer for synchronization
 
-use crate::storage::StorageError;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -9,6 +8,20 @@ use thiserror::Error;
 pub mod websocket;
 pub mod memory;
 pub mod multi_transport;
+pub mod leptos_ws_pro_transport;
+pub mod compatibility_layer;
+pub mod hybrid_transport_impl;
+
+#[cfg(test)]
+pub mod leptos_ws_pro_tests;
+
+#[cfg(test)]
+pub mod real_websocket_tests;
+
+#[cfg(test)]
+pub mod server_compatibility_tests;
+#[cfg(test)]
+pub mod hybrid_transport_tests;
 
 #[derive(Error, Debug)]
 pub enum TransportError {
@@ -24,15 +37,31 @@ pub enum TransportError {
     NotConnected,
 }
 
+// From implementation is already in leptos_ws_pro_transport.rs
+
+impl From<compatibility_layer::CompatibilityError> for TransportError {
+    fn from(err: compatibility_layer::CompatibilityError) -> Self {
+        match err {
+            compatibility_layer::CompatibilityError::Transport(transport_err) => transport_err,
+            compatibility_layer::CompatibilityError::Serialization(msg) => {
+                TransportError::SerializationFailed(msg)
+            }
+            compatibility_layer::CompatibilityError::Protocol(msg) => {
+                TransportError::ConnectionFailed(msg)
+            }
+        }
+    }
+}
+
 /// Transport trait for synchronization
 pub trait SyncTransport: Send + Sync {
     type Error: std::error::Error + Send + Sync;
     
     /// Send data to remote peers
-    fn send(&self, data: &[u8]) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send;
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>>;
     
     /// Receive data from remote peers
-    fn receive(&self) -> impl std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send;
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>>;
     
     /// Check if transport is connected
     fn is_connected(&self) -> bool;
@@ -63,24 +92,28 @@ impl InMemoryTransport {
 impl SyncTransport for InMemoryTransport {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        if !self.connected {
-            return Err(TransportError::NotConnected);
-        }
-        
-        let mut queue = self.message_queue.write().await;
-        queue.push(data.to_vec());
-        Ok(())
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            if !self.connected {
+                return Err(TransportError::NotConnected);
+            }
+            
+            let mut queue = self.message_queue.write().await;
+            queue.push(data.to_vec());
+            Ok(())
+        })
     }
 
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        if !self.connected {
-            return Err(TransportError::NotConnected);
-        }
-        
-        let mut queue = self.message_queue.write().await;
-        let messages = queue.drain(..).collect();
-        Ok(messages)
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            if !self.connected {
+                return Err(TransportError::NotConnected);
+            }
+            
+            let mut queue = self.message_queue.write().await;
+            let messages = queue.drain(..).collect();
+            Ok(messages)
+        })
     }
 
     fn is_connected(&self) -> bool {
@@ -121,12 +154,16 @@ impl WebSocketTransport {
 impl SyncTransport for WebSocketTransport {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        self.inner.send(data).await.map_err(|e| TransportError::SendFailed(e.to_string()))
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            self.inner.send(data).await.map_err(|e| TransportError::SendFailed(e.to_string()))
+        })
     }
 
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        self.inner.receive().await.map_err(|e| TransportError::ReceiveFailed(e.to_string()))
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            self.inner.receive().await.map_err(|e| TransportError::ReceiveFailed(e.to_string()))
+        })
     }
 
     fn is_connected(&self) -> bool {
@@ -142,78 +179,8 @@ impl Clone for WebSocketTransport {
     }
 }
 
-/// Hybrid transport that can use multiple backends
-#[derive(Clone)]
-pub enum HybridTransport {
-    WebSocket(WebSocketTransport),
-    InMemory(InMemoryTransport),
-    Fallback {
-        primary: WebSocketTransport,
-        fallback: InMemoryTransport,
-    },
-}
-
-impl HybridTransport {
-    pub fn with_websocket(url: String) -> Self {
-        Self::WebSocket(WebSocketTransport::new(url))
-    }
-
-    pub fn with_in_memory() -> Self {
-        Self::InMemory(InMemoryTransport::new())
-    }
-
-    pub fn with_fallback(primary: WebSocketTransport, fallback: InMemoryTransport) -> Self {
-        Self::Fallback { primary, fallback }
-    }
-
-    pub fn add_transport(&mut self, transport: HybridTransport) {
-        // For now, just replace the current transport
-        // In a more sophisticated implementation, you'd maintain a list
-        *self = transport;
-    }
-}
-
-impl SyncTransport for HybridTransport {
-    type Error = TransportError;
-
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        match self {
-            HybridTransport::WebSocket(ws) => ws.send(data).await,
-            HybridTransport::InMemory(mem) => mem.send(data).await,
-            HybridTransport::Fallback { primary, fallback } => {
-                // Try primary first, fall back to fallback
-                match primary.send(data).await {
-                    Ok(()) => Ok(()),
-                    Err(_) => fallback.send(data).await,
-                }
-            }
-        }
-    }
-
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        match self {
-            HybridTransport::WebSocket(ws) => ws.receive().await,
-            HybridTransport::InMemory(mem) => mem.receive().await,
-            HybridTransport::Fallback { primary, fallback } => {
-                // Try primary first, fall back to fallback
-                match primary.receive().await {
-                    Ok(messages) => Ok(messages),
-                    Err(_) => fallback.receive().await,
-                }
-            }
-        }
-    }
-
-    fn is_connected(&self) -> bool {
-        match self {
-            HybridTransport::WebSocket(ws) => ws.is_connected(),
-            HybridTransport::InMemory(mem) => mem.is_connected(),
-            HybridTransport::Fallback { primary, fallback } => {
-                primary.is_connected() || fallback.is_connected()
-            }
-        }
-    }
-}
+// Re-export HybridTransport from the implementation module
+pub use hybrid_transport_impl::HybridTransport;
 
 /// Transport configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,13 +210,24 @@ impl TransportFactory {
         WebSocketTransport::new(url)
     }
 
+    pub fn leptos_ws_pro(config: leptos_ws_pro_transport::LeptosWsProConfig) -> HybridTransport {
+        HybridTransport::with_leptos_ws_pro(config)
+    }
+
+    pub fn compatibility(config: leptos_ws_pro_transport::LeptosWsProConfig) -> HybridTransport {
+        HybridTransport::with_compatibility(config)
+    }
+
     pub fn in_memory() -> InMemoryTransport {
         InMemoryTransport::new()
     }
 
     pub fn hybrid(primary_url: String) -> HybridTransport {
-        let primary = WebSocketTransport::new(primary_url);
-        let fallback = InMemoryTransport::new();
+        let primary = HybridTransport::with_leptos_ws_pro(leptos_ws_pro_transport::LeptosWsProConfig {
+            url: primary_url,
+            ..Default::default()
+        });
+        let fallback = HybridTransport::with_in_memory();
         HybridTransport::with_fallback(primary, fallback)
     }
 }
@@ -274,8 +252,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_hybrid_transport_fallback() {
-        let primary = WebSocketTransport::new("ws://invalid-url".to_string());
-        let fallback = InMemoryTransport::new();
+        let primary = HybridTransport::with_websocket("ws://invalid-url".to_string());
+        let fallback = HybridTransport::with_in_memory();
         let transport = HybridTransport::with_fallback(primary, fallback.clone());
         
         // Send message to fallback transport directly

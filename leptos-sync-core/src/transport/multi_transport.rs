@@ -1,4 +1,6 @@
 use super::{SyncTransport, TransportError, InMemoryTransport, WebSocketTransport};
+use super::leptos_ws_pro_transport::LeptosWsProTransport;
+use super::compatibility_layer::CompatibilityTransport;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -8,6 +10,7 @@ use tokio::sync::RwLock;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TransportType {
     WebSocket,
+    LeptosWsPro, // New leptos-ws-pro transport
     Http,
     WebRTC,
     Memory, // For testing
@@ -29,8 +32,8 @@ pub struct MultiTransportConfig {
 impl Default for MultiTransportConfig {
     fn default() -> Self {
         Self {
-            primary: TransportType::WebSocket,
-            fallbacks: vec![TransportType::Http, TransportType::Memory],
+            primary: TransportType::LeptosWsPro, // Use leptos-ws-pro as default
+            fallbacks: vec![TransportType::WebSocket, TransportType::Http, TransportType::Memory],
             auto_switch: true,
             timeout_ms: 5000,
         }
@@ -41,29 +44,41 @@ impl Default for MultiTransportConfig {
 #[derive(Clone)]
 pub enum TransportEnum {
     WebSocket(WebSocketTransport),
+    LeptosWsPro(LeptosWsProTransport),
+    Compatibility(CompatibilityTransport),
     InMemory(InMemoryTransport),
 }
 
 impl SyncTransport for TransportEnum {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        match self {
-            TransportEnum::WebSocket(ws) => ws.send(data).await,
-            TransportEnum::InMemory(mem) => mem.send(data).await,
-        }
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            match self {
+                TransportEnum::WebSocket(ws) => ws.send(data).await,
+                TransportEnum::LeptosWsPro(leptos_ws) => leptos_ws.send(data).await.map_err(|e| e.into()),
+                TransportEnum::Compatibility(compat) => compat.send(data).await.map_err(|e| e.into()),
+                TransportEnum::InMemory(mem) => mem.send(data).await,
+            }
+        })
     }
 
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        match self {
-            TransportEnum::WebSocket(ws) => ws.receive().await,
-            TransportEnum::InMemory(mem) => mem.receive().await,
-        }
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            match self {
+                TransportEnum::WebSocket(ws) => ws.receive().await,
+                TransportEnum::LeptosWsPro(leptos_ws) => leptos_ws.receive().await.map_err(|e| e.into()),
+                TransportEnum::Compatibility(compat) => compat.receive().await.map_err(|e| e.into()),
+                TransportEnum::InMemory(mem) => mem.receive().await,
+            }
+        })
     }
 
     fn is_connected(&self) -> bool {
         match self {
             TransportEnum::WebSocket(ws) => ws.is_connected(),
+            TransportEnum::LeptosWsPro(leptos_ws) => leptos_ws.is_connected(),
+            TransportEnum::Compatibility(compat) => compat.is_connected(),
             TransportEnum::InMemory(mem) => mem.is_connected(),
         }
     }
@@ -79,10 +94,11 @@ pub struct MultiTransport {
 impl MultiTransport {
     /// Create a new multi-transport instance
     pub fn new(config: MultiTransportConfig) -> Self {
+        let primary = config.primary.clone();
         Self {
             config,
             transports: HashMap::new(),
-            current_transport: Arc::new(RwLock::new(TransportType::WebSocket)),
+            current_transport: Arc::new(RwLock::new(primary)),
         }
     }
 
@@ -131,24 +147,28 @@ impl MultiTransport {
 impl SyncTransport for MultiTransport {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> Result<(), Self::Error> {
-        let current_type = self.current_transport.read().await.clone();
-        
-        if let Some(transport) = self.transports.get(&current_type) {
-            transport.send(data).await
-        } else {
-            Err(TransportError::SendFailed(format!("No transport available for {:?}", current_type)))
-        }
+    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            let current_type = self.current_transport.read().await.clone();
+            
+            if let Some(transport) = self.transports.get(&current_type) {
+                transport.send(data).await
+            } else {
+                Err(TransportError::SendFailed(format!("No transport available for {:?}", current_type)))
+            }
+        })
     }
 
-    async fn receive(&self) -> Result<Vec<Vec<u8>>, Self::Error> {
-        let current_type = self.current_transport.read().await.clone();
-        
-        if let Some(transport) = self.transports.get(&current_type) {
-            transport.receive().await
-        } else {
-            Err(TransportError::ReceiveFailed(format!("No transport available for {:?}", current_type)))
-        }
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            let current_type = self.current_transport.read().await.clone();
+            
+            if let Some(transport) = self.transports.get(&current_type) {
+                transport.receive().await
+            } else {
+                Err(TransportError::ReceiveFailed(format!("No transport available for {:?}", current_type)))
+            }
+        })
     }
 
     fn is_connected(&self) -> bool {
@@ -174,7 +194,7 @@ mod tests {
         let config = MultiTransportConfig::default();
         let multi_transport = MultiTransport::new(config);
         
-        assert_eq!(multi_transport.current_transport().await, TransportType::WebSocket);
+        assert_eq!(multi_transport.current_transport().await, TransportType::LeptosWsPro);
         assert!(multi_transport.available_transports().is_empty());
     }
 
@@ -213,7 +233,7 @@ mod tests {
         let mut multi_transport = MultiTransport::new(config);
         
         let mock_transport = TransportEnum::InMemory(InMemoryTransport::new());
-        multi_transport.register_transport(TransportType::WebSocket, mock_transport);
+        multi_transport.register_transport(TransportType::LeptosWsPro, mock_transport);
         
         // Test send
         multi_transport.send(b"test data").await.unwrap();
@@ -296,7 +316,7 @@ mod tests {
         
         // Check config access
         let config = multi_transport.config();
-        assert_eq!(config.primary, TransportType::WebSocket);
+        assert_eq!(config.primary, TransportType::LeptosWsPro);
         assert!(config.auto_switch);
     }
 }
