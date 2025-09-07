@@ -23,6 +23,9 @@ pub mod server_compatibility_tests;
 #[cfg(test)]
 pub mod hybrid_transport_tests;
 
+#[cfg(test)]
+pub mod enhanced_features_tests;
+
 #[derive(Error, Debug)]
 pub enum TransportError {
     #[error("Connection failed: {0}")]
