@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2025-01-03
+
+### 🚀 Production-Ready WebSocket Integration with leptos-ws-pro
+
+#### Major Features
+- **Production-Ready WebSocket Transport**: Full integration with `leptos-ws-pro` for real-time communication
+- **Hybrid Transport System**: Intelligent fallback mechanisms between transport types
+- **Enhanced Reliability**: Circuit breakers, error recovery, and robust error handling
+- **Protocol Compatibility**: Seamless migration from existing WebSocket implementations
+- **Comprehensive Testing**: 320+ tests with full TDD implementation
+- **Backward Compatibility**: All existing APIs maintained and enhanced
+
+#### Technical Improvements
+- **LeptosWsProTransport**: New production-ready WebSocket transport implementation
+- **CompatibilityTransport**: Protocol bridging layer for seamless migration
+- **HybridTransport**: Enhanced with leptos-ws-pro support and intelligent fallbacks
+- **MultiTransport**: Updated to support leptos-ws-pro as default transport
+- **Reliability Components**: Fixed circuit breaker thresholds and error recovery logic
+- **Storage Fallbacks**: Improved IndexedDB handling for non-WASM environments
+
+#### Testing & Quality
+- **320 tests passing**: Comprehensive test coverage with zero failures
+- **TDD Implementation**: Complete test-driven development approach
+- **Integration Tests**: Full WebSocket integration testing
+- **Server Compatibility**: Verified compatibility with existing WebSocket servers
+- **Performance Testing**: Benchmarked transport performance characteristics
+
+#### Migration Support
+- **Migration Plan**: Complete documentation for upgrading to leptos-ws-pro
+- **Backward Compatibility**: Existing code continues to work without changes
+- **Gradual Migration**: Support for incremental adoption of new features
+- **Fallback Mechanisms**: Automatic fallback to existing transports if needed
+
+### Dependencies
+- Added `leptos-ws-pro = "0.2.0-beta"` for production WebSocket support
+
+### Breaking Changes
+- None - fully backward compatible
+
 ## [0.6.0] - 2025-01-30
 
 ### 🚀 Collaborative Application Demos - Real-World CRDT Showcase

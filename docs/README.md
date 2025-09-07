@@ -26,6 +26,9 @@ Welcome to the Leptos-Sync documentation! This directory contains comprehensive 
 - **[Project Status Realistic](status/PROJECT_STATUS_REALISTIC.md)** - Current project assessment
 - **[Storage-First MVP Complete](status/STORAGE_FIRST_MVP_COMPLETE.md)** - Storage-First MVP details
 
+### 🔄 Migration & Integration
+- **[leptos-ws-pro Migration Plan](LEPTOS_WS_PRO_MIGRATION_PLAN.md)** - Complete migration guide for WebSocket integration
+
 ## 🚀 Quick Start
 
 1. **New to Leptos-Sync?** Start with [Project Setup](guides/project-setup.md)
@@ -87,6 +90,7 @@ We welcome contributions to improve our documentation! Please see our [Contribut
 | Developer Guides | ✅ Complete | 2025-01-03 | Development workflow |
 | Project Status | ✅ Complete | 2025-01-03 | Current project state |
 | Deployment | ✅ Complete | 2025-01-03 | Production deployment |
+| WebSocket Integration | ✅ Complete | 2025-01-03 | leptos-ws-pro integration v0.8.0 |
 
 ---
 

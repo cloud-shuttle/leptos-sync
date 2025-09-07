@@ -23,9 +23,10 @@ A **production-ready**, local-first synchronization library for [Leptos](https:/
 - **Comprehensive Error Handling**: Retry logic with circuit breakers
 - **Storage Abstraction**: Hybrid storage with automatic fallback (OPFS → IndexedDB → LocalStorage)
 - **Performance Optimizations**: Memory pooling, serialization, indexed storage
+- **WebSocket Integration**: Production-ready WebSocket transport via leptos-ws-pro (v0.8.0)
 
 ### ⚠️ **Platform-Specific Features**
-- **WebSocket Transport**: Fully implemented interface, optimized for WASM targets
+- **WebSocket Transport**: Production-ready implementation with leptos-ws-pro integration
 - **Multi-User Sync Engine**: Complete implementation with peer management
 - **Production Deployment**: Kubernetes manifests, monitoring, and CI/CD
 
@@ -35,14 +36,22 @@ A **production-ready**, local-first synchronization library for [Leptos](https:/
 - **Document Editor Demo (Yjs Tree)**: Hierarchical document editing with tree structures
 - **Project Manager Demo (DAG)**: Project management with task dependencies and relationships
 
+### 🆕 **What's New in v0.8.0**
+- **Production-Ready WebSocket Transport**: Full integration with `leptos-ws-pro` for real-time communication
+- **Hybrid Transport System**: Intelligent fallback mechanisms between transport types
+- **Enhanced Reliability**: Circuit breakers, error recovery, and robust error handling
+- **Protocol Compatibility**: Seamless migration from existing WebSocket implementations
+- **Comprehensive Testing**: 320+ tests with full TDD implementation
+- **Backward Compatibility**: All existing APIs maintained and enhanced
+
 ## 📦 Installation
 
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-leptos-sync-core = "0.7.0"
-leptos-sync-components = "0.7.0"
+leptos-sync-core = "0.8.0"
+leptos-sync-components = "0.8.0"
 leptos = "0.8.6"
 ```
 

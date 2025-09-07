@@ -349,15 +349,18 @@ impl HybridTransport {
     pub fn new() -> Self {
         let mut transports: Vec<Box<dyn SyncTransport>> = Vec::new();
         
-        // Primary: WebRTC for direct peer-to-peer
+        // Primary: leptos-ws-pro for production WebSocket communication
+        transports.push(Box::new(LeptosWsProTransport::new()));
+        
+        // Secondary: WebRTC for direct peer-to-peer
         if supports_webrtc() {
             transports.push(Box::new(WebRtcTransport::new()));
         }
         
-        // Secondary: WebSocket for server-mediated sync
+        // Tertiary: Legacy WebSocket for compatibility
         transports.push(Box::new(WebSocketTransport::new()));
         
-        // Tertiary: HTTP polling fallback
+        // Quaternary: HTTP polling fallback
         transports.push(Box::new(HttpPollingTransport::new()));
         
         Self {
@@ -369,7 +372,41 @@ impl HybridTransport {
 }
 ```
 
-#### WebSocket Transport (Primary)
+#### leptos-ws-pro Transport (Primary - v0.8.0)
+
+```rust
+pub struct LeptosWsProTransport {
+    config: LeptosWsProConfig,
+    connection_state: RwSignal<ConnectionState>,
+    message_queue: Arc<Mutex<VecDeque<Vec<u8>>>>,
+    reliability_manager: Arc<ReliabilityManager>,
+}
+
+impl SyncTransport for LeptosWsProTransport {
+    async fn send(&self, data: &[u8]) -> Result<(), TransportError> {
+        // Production-ready WebSocket implementation via leptos-ws-pro
+        self.send_message(data).await.map_err(Into::into)
+    }
+    
+    async fn receive(&self) -> Result<Vec<Vec<u8>>, TransportError> {
+        // Receive messages with automatic reconnection and error handling
+        self.receive_messages().await.map_err(Into::into)
+    }
+    
+    fn is_connected(&self) -> bool {
+        matches!(self.connection_state.get(), ConnectionState::Connected)
+    }
+}
+```
+
+**Key Features:**
+- **Production-Ready**: Built on `leptos-ws-pro` for robust WebSocket communication
+- **Automatic Reconnection**: Intelligent reconnection with exponential backoff
+- **Error Recovery**: Circuit breaker pattern with automatic fallback
+- **Protocol Compatibility**: Seamless integration with existing message protocols
+- **Performance Optimized**: Efficient message handling and connection pooling
+
+#### Legacy WebSocket Transport (Compatibility)
 
 ```rust
 pub struct WebSocketTransport {

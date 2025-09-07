@@ -16,8 +16,8 @@ Add Leptos-Sync to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-leptos-sync-core = "0.3.1"
-leptos-sync-components = "0.3.1"
+leptos-sync-core = "0.8.0"
+leptos-sync-components = "0.8.0"
 leptos = { version = "0.8", features = ["csr"] }
 serde = { version = "1.0", features = ["derive"] }
 ```
@@ -463,6 +463,54 @@ async fn main() {
     server.run().await?;
 }
 ```
+
+### Step 4: Production WebSocket Transport (v0.8.0)
+
+For production applications, use the new `leptos-ws-pro` integration:
+
+```rust
+use leptos_sync_core::{
+    transport::leptos_ws_pro_transport::{LeptosWsProTransport, LeptosWsProConfig},
+    transport::hybrid_transport_impl::HybridTransport,
+};
+
+#[component]
+fn ProductionApp() -> impl IntoView {
+    // Configure production WebSocket transport
+    let config = LeptosWsProConfig {
+        url: "wss://your-sync-server.com/ws".to_string(),
+        max_reconnect_attempts: 5,
+        retry_delay: Duration::from_secs(1),
+        heartbeat_interval: Duration::from_secs(30),
+    };
+    
+    // Create hybrid transport with fallback
+    let primary_transport = LeptosWsProTransport::new(config);
+    let fallback_transport = InMemoryTransport::new();
+    let transport = HybridTransport::with_fallback(
+        HybridTransport::LeptosWsPro(primary_transport),
+        HybridTransport::InMemory(fallback_transport)
+    );
+    
+    // Initialize collection with production transport
+    let storage = Storage::indexed_db("my-app-db");
+    let collection = LocalFirstCollection::<GCounter, _>::new(storage, transport);
+    
+    // Your app logic here...
+    view! {
+        <div>
+            <h1>"Production-Ready Sync App"</h1>
+            // Your UI components
+        </div>
+    }
+}
+```
+
+**Key Benefits:**
+- **Production-Ready**: Built on `leptos-ws-pro` for robust WebSocket communication
+- **Automatic Fallback**: Falls back to in-memory transport if WebSocket fails
+- **Error Recovery**: Circuit breaker pattern with automatic reconnection
+- **Performance**: Optimized for real-time collaboration
 
 ## 📖 Next Steps
 
