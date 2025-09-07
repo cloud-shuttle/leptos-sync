@@ -86,23 +86,27 @@ impl MockTransport {
 impl SyncTransport for MockTransport {
     type Error = TransportError;
 
-    async fn send(&self, data: &[u8]) -> std::result::Result<(), Self::Error> {
-        let message: serde_json::Value = serde_json::from_slice(data)
-            .map_err(|e| TransportError::SerializationFailed(e.to_string()))?;
-        let mut messages = self.messages.write().await;
-        messages.push(message);
-        Ok(())
+    fn send(&self, data: &[u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<(), Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            let message: serde_json::Value = serde_json::from_slice(data)
+                .map_err(|e| TransportError::SerializationFailed(e.to_string()))?;
+            let mut messages = self.messages.write().await;
+            messages.push(message);
+            Ok(())
+        })
     }
 
-    async fn receive(&self) -> std::result::Result<Vec<Vec<u8>>, Self::Error> {
-        let mut messages = self.messages.write().await;
-        let mut result = Vec::new();
-        while let Some(message) = messages.pop() {
-            let bytes = serde_json::to_vec(&message)
-                .map_err(|e| TransportError::SerializationFailed(e.to_string()))?;
-            result.push(bytes);
-        }
-        Ok(result)
+    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::result::Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+        Box::pin(async move {
+            let mut messages = self.messages.write().await;
+            let mut result = Vec::new();
+            while let Some(message) = messages.pop() {
+                let bytes = serde_json::to_vec(&message)
+                    .map_err(|e| TransportError::SerializationFailed(e.to_string()))?;
+                result.push(bytes);
+            }
+            Ok(result)
+        })
     }
 
     fn is_connected(&self) -> bool {

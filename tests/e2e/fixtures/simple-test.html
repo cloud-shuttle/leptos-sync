@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Simple E2E Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .test-container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+
+        .task-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .add-button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .add-button:hover {
+            background-color: #0056b3;
+        }
+
+        .task-list {
+            margin-top: 20px;
+        }
+
+        .task-item {
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        .task-item.completed {
+            background-color: #d4edda;
+            text-decoration: line-through;
+        }
+
+        .task-actions {
+            margin-top: 10px;
+        }
+
+        .task-actions button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .toggle-button {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .delete-button {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-container">
+        <h1>Simple E2E Test Application</h1>
+        <p>This is a simple test application for E2E testing without WASM dependencies.</p>
+
+        <div class="add-task-section">
+            <h3>Add New Task</h3>
+            <input type="text" class="task-input" placeholder="Task title..." />
+            <button class="add-button">Add Task</button>
+        </div>
+
+        <div class="task-list">
+            <h3>Tasks (<span id="task-count">0</span>)</h3>
+            <div id="tasks-container"></div>
+        </div>
+
+        <div class="manager-info">
+            <h3>Manager Info:</h3>
+            <p>Total Tasks: <span id="total-tasks">0</span></p>
+            <p>Is Empty: <span id="is-empty">true</span></p>
+            <p>User ID: <span id="user-id">test-user-123</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Simple task management without WASM
+        let tasks = [];
+        let taskIdCounter = 0;
+
+        // Load tasks from localStorage on page load
+        function loadTasks() {
+            const saved = localStorage.getItem('e2e-test-tasks');
+            if (saved) {
+                tasks = JSON.parse(saved);
+                taskIdCounter = Math.max(...tasks.map(t => t.id), 0) + 1;
+            }
+            updateDisplay();
+        }
+
+        // Save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem('e2e-test-tasks', JSON.stringify(tasks));
+        }
+
+        // Update the display
+        function updateDisplay() {
+            const container = document.getElementById('tasks-container');
+            const taskCount = document.getElementById('task-count');
+            const totalTasks = document.getElementById('total-tasks');
+            const isEmpty = document.getElementById('is-empty');
+
+            container.innerHTML = '';
+            tasks.forEach(task => {
+                const taskElement = document.createElement('div');
+                taskElement.className = `task-item ${task.completed ? 'completed' : ''}`;
+                taskElement.innerHTML = `
+                    <div class="task-header">
+                        <h4>${task.title}</h4>
+                    </div>
+                    <p class="task-description">${task.description}</p>
+                    <div class="task-meta">
+                        <span class="status ${task.completed ? 'done' : ''}">${task.completed ? 'Done' : 'Todo'}</span>
+                        <span class="created-at">Created: ${new Date(task.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button class="toggle-button" onclick="toggleTask(${task.id})">Toggle</button>
+                        <button class="delete-button" onclick="deleteTask(${task.id})">Delete</button>
+                    </div>
+                `;
+                container.appendChild(taskElement);
+            });
+
+            taskCount.textContent = tasks.length;
+            totalTasks.textContent = tasks.length;
+            isEmpty.textContent = tasks.length === 0 ? 'true' : 'false';
+        }
+
+        // Add a new task
+        function addTask() {
+            const input = document.querySelector('.task-input');
+            const title = input.value.trim();
+
+            if (title) {
+                const task = {
+                    id: taskIdCounter++,
+                    title: title,
+                    description: 'Test task description',
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                };
+
+                tasks.push(task);
+                input.value = '';
+                saveTasks();
+                updateDisplay();
+            }
+        }
+
+        // Toggle task completion
+        function toggleTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                updateDisplay();
+            }
+        }
+
+        // Delete a task
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveTasks();
+            updateDisplay();
+        }
+
+        // Event listeners
+        document.querySelector('.add-button').addEventListener('click', addTask);
+        document.querySelector('.task-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        // Initialize
+        loadTasks();
+    </script>
+</body>
+
+</html>
