@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2025-01-03
+
+### 🔄 Dependency Updates
+
+#### leptos-ws-pro Upgrade
+- **Upgraded to leptos-ws-pro v0.9.0**: Latest version with enhanced features and improvements
+- **Maintained Full Compatibility**: All existing APIs and functionality preserved
+- **Enhanced Performance**: Leveraging latest optimizations and bug fixes
+- **Production Ready**: Thoroughly tested and verified for production use
+
+#### Technical Details
+- Updated from `leptos-ws-pro = "0.8.0"` to `leptos-ws-pro = "0.9.0"`
+- All integration tests passing
+- Transport layer compatibility verified
+- No breaking changes introduced
+
 ## [0.8.0] - 2025-01-03
 
 ### 🚀 Production-Ready WebSocket Integration with leptos-ws-pro
