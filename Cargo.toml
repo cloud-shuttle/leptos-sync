@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "leptos-sync-core",
-    "leptos-sync-macros", 
+    "leptos-sync-macros",
     "leptos-sync-components",
     "leptos-sync-examples",
     "tests/integration",
@@ -12,52 +12,59 @@ members = [
     "examples/text_editor_demo",
     "examples/task_manager_demo",
     "examples/document_editor_demo",
-    "examples/project_manager_demo"
+    "examples/project_manager_demo",
 ]
 
 resolver = "2"
 
 [workspace.dependencies]
-leptos = "0.8.6"
-leptos_ws = "0.8.0-rc2"
-leptos-ws-pro = "0.10.0"
-leptos-sync-core = { version = "0.8.0", path = "leptos-sync-core" }
-leptos-sync-components = { version = "0.8.0", path = "leptos-sync-components" }
-leptos-sync-macros = { version = "0.8.0", path = "leptos-sync-macros" }
-web-sys = { version = "0.3", features = [
-    "Window", 
-    "Storage",
-    "console"
-] }
+leptos = "0.8.9"
+leptos_ws = "0.8.0"
+leptos-ws-pro = "0.11.0"
+leptos-sync-core = { version = "0.9.0", path = "leptos-sync-core" }
+leptos-sync-components = { version = "0.9.0", path = "leptos-sync-components" }
+leptos-sync-macros = { version = "0.9.0", path = "leptos-sync-macros" }
+web-sys = { version = "0.3", features = ["Window", "Storage", "console"] }
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
-uuid = { version = "1.0", features = ["v4", "serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
 thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4.38", features = ["serde"] }
 async-trait = "0.1"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono"] }
-redis = { version = "0.23", features = ["tokio-comp"] }
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "chrono",
+] }
+redis = { version = "0.26", features = ["tokio-comp"] }
 prometheus = "0.13"
 axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "trace"] }
 
+# Feature dependencies
+aes-gcm = "0.10"
+ring = "0.17"
+flate2 = "1.0"
+lz4 = "1.24"
+idb = "0.13"
+
 # Testing dependencies
-proptest = "1.0"
-wasm-bindgen-test = "0.3"
-criterion = "0.5"
+proptest = "1.5"
+wasm-bindgen-test = "0.3.45"
+criterion = "0.5.1"
 tokio-test = "0.4"
 tempfile = "3.0"
 
 [workspace.package]
-version = "0.8.4"
-edition = "2024"
+version = "0.9.0"
+edition = "2021"
 authors = ["Cloud Shuttle <team@cloud-shuttle.com>"]
 description = "Local-first, offline-capable data synchronization for Leptos applications"
 license = "MIT OR Apache-2.0"

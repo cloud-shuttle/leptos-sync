@@ -1,16 +1,17 @@
 //! leptos-ws-pro transport implementation for leptos-sync
-//! 
+//!
 //! This module provides a WebSocket transport implementation using leptos-ws-pro
 //! that integrates with the existing SyncTransport trait.
 
 use super::{SyncTransport, TransportError};
+#[cfg(feature = "websocket")]
 use leptos_ws_pro::*;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
-use std::collections::VecDeque;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 #[derive(Error, Debug)]
 pub enum LeptosWsProError {
@@ -70,8 +71,8 @@ pub struct LeptosWsProTransport {
     config: LeptosWsProConfig,
     connection_state: Arc<RwLock<ConnectionState>>,
     message_queue: Arc<RwLock<VecDeque<Vec<u8>>>>,
-    ws_context: Option<WebSocketContext>,
-    codec: JsonCodec,
+    ws_context: Option<()>, // Placeholder for WebSocketContext
+    codec: (),              // Placeholder for JsonCodec
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,7 +92,7 @@ impl LeptosWsProTransport {
             connection_state: Arc::new(RwLock::new(ConnectionState::Disconnected)),
             message_queue: Arc::new(RwLock::new(VecDeque::new())),
             ws_context: None,
-            codec: JsonCodec::new(),
+            codec: (), // Placeholder for JsonCodec::new()
         }
     }
 
@@ -145,11 +146,11 @@ impl LeptosWsProTransport {
                             e,
                             self.config.retry_delay
                         );
-                        
+
                         let mut state = self.connection_state.write().await;
                         *state = ConnectionState::Reconnecting;
                         drop(state);
-                        
+
                         tokio::time::sleep(self.config.retry_delay).await;
                     } else {
                         let mut state = self.connection_state.write().await;
@@ -172,10 +173,10 @@ impl LeptosWsProTransport {
         // Real implementation using leptos-ws-pro APIs
         // Note: This is a simplified implementation for demonstration
         // In a full implementation, we would use leptos-ws-pro's WebSocket context
-        
+
         // Simulate connection delay
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         // Simulate connection success/failure based on URL
         if self.config.url.contains("invalid") || self.config.url.contains("9999") {
             Err(LeptosWsProError::ConnectionFailed(
@@ -187,7 +188,7 @@ impl LeptosWsProTransport {
             // 2. Set up message handlers
             // 3. Start heartbeat mechanism
             // 4. Handle connection events
-            
+
             // For now, simulate successful connection for valid URLs
             Ok(())
         }
@@ -197,11 +198,11 @@ impl LeptosWsProTransport {
     pub async fn disconnect(&self) -> Result<(), LeptosWsProError> {
         let mut state = self.connection_state.write().await;
         *state = ConnectionState::Disconnected;
-        
+
         // Clear message queue
         let mut queue = self.message_queue.write().await;
         queue.clear();
-        
+
         Ok(())
     }
 
@@ -218,7 +219,7 @@ impl LeptosWsProTransport {
         // (This simulates the echo behavior of our test server)
         let mut queue = self.message_queue.write().await;
         queue.push_back(data.to_vec());
-        
+
         Ok(())
     }
 
@@ -250,16 +251,20 @@ impl LeptosWsProTransport {
 impl SyncTransport for LeptosWsProTransport {
     type Error = TransportError;
 
-    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
-        Box::pin(async move {
-            self.send_message(data).await.map_err(Into::into)
-        })
+    fn send<'a>(
+        &'a self,
+        data: &'a [u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>>
+    {
+        Box::pin(async move { self.send_message(data).await.map_err(Into::into) })
     }
 
-    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
-        Box::pin(async move {
-            self.receive_messages().await.map_err(Into::into)
-        })
+    fn receive(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>,
+    > {
+        Box::pin(async move { self.receive_messages().await.map_err(Into::into) })
     }
 
     fn is_connected(&self) -> bool {
@@ -274,7 +279,7 @@ impl Clone for LeptosWsProTransport {
             connection_state: self.connection_state.clone(),
             message_queue: self.message_queue.clone(),
             ws_context: None, // Context cannot be cloned
-            codec: JsonCodec::new(),
+            codec: (),        // Placeholder for JsonCodec::new()
         }
     }
 }
@@ -367,7 +372,7 @@ mod tests {
     async fn test_transport_creation() {
         let config = LeptosWsProConfig::default();
         let transport = LeptosWsProTransport::new(config);
-        
+
         assert!(!transport.is_connected());
         assert_eq!(transport.url(), "ws://localhost:8080");
     }
@@ -376,7 +381,7 @@ mod tests {
     async fn test_connection_state() {
         let config = LeptosWsProConfig::default();
         let transport = LeptosWsProTransport::new(config);
-        
+
         let state = transport.connection_state().await;
         assert_eq!(state, ConnectionState::Disconnected);
     }
@@ -386,20 +391,22 @@ mod tests {
         let config = LeptosWsProConfig::default();
         let transport = LeptosWsProTransport::new(config);
         let adapter = MessageProtocolAdapter::new(transport);
-        
+
         // Test sync message
         let data = serde_json::json!({
             "changes": ["change1", "change2"],
             "client_id": "test_client"
         });
-        
+
         let result = adapter.send_sync_message("test_peer", data).await;
         assert!(result.is_err()); // Expected when not connected
-        
+
         // Test presence message
-        let result = adapter.send_presence_message("test_peer", "connected").await;
+        let result = adapter
+            .send_presence_message("test_peer", "connected")
+            .await;
         assert!(result.is_err()); // Expected when not connected
-        
+
         // Test heartbeat
         let result = adapter.send_heartbeat().await;
         assert!(result.is_err()); // Expected when not connected

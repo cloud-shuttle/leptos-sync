@@ -28,6 +28,9 @@ Welcome to the Leptos-Sync documentation! This directory contains comprehensive 
 
 ### 🔄 Migration & Integration
 - **[leptos-ws-pro Migration Plan](LEPTOS_WS_PRO_MIGRATION_PLAN.md)** - Complete migration guide for WebSocket integration
+- **[WebRTC Integration Strategy](guides/webrtc-integration-strategy.md)** - Strategic approach for WebRTC support
+- **[WebRTC Technical Decision Matrix](guides/webrtc-technical-decision-matrix.md)** - Technical decisions and rationale
+- **[WebRTC Quick Reference](guides/webrtc-quick-reference.md)** - Quick start guide for WebRTC integration
 
 ## 🚀 Quick Start
 
@@ -46,6 +49,7 @@ Welcome to the Leptos-Sync documentation! This directory contains comprehensive 
 - **Security**: [Security & Privacy](guides/security-privacy.md)
 - **Deployment**: [Deployment & Operations](deployment-operations.md)
 - **API**: [API Reference](api/api-reference.md)
+- **WebRTC Integration**: [WebRTC Integration Strategy](guides/webrtc-integration-strategy.md)
 
 ### By Audience
 - **Users**: [Project Setup](guides/project-setup.md), [API Reference](api/api-reference.md)
@@ -91,6 +95,7 @@ We welcome contributions to improve our documentation! Please see our [Contribut
 | Project Status | ✅ Complete | 2025-01-03 | Current project state |
 | Deployment | ✅ Complete | 2025-01-03 | Production deployment |
 | WebSocket Integration | ✅ Complete | 2025-01-03 | leptos-ws-pro integration v0.8.0 |
+| WebRTC Integration | 📋 Planned | 2025-01-03 | Strategic documentation complete |
 
 ---
 

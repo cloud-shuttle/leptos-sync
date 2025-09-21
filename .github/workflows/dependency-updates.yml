@@ -1,0 +1,298 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # Weekly on Monday
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - security
+        - minor
+        - major
+
+jobs:
+  check-outdated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated
+          
+      - name: Check for outdated dependencies
+        run: |
+          echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cargo outdated --format json > outdated.json || true
+          
+          if [ -s outdated.json ]; then
+            echo "### Security Updates" >> $GITHUB_STEP_SUMMARY
+            jq -r '.[] | select(.kind == "security") | "- **\(.name)**: \(.installed_version) → \(.latest_version)"' outdated.json >> $GITHUB_STEP_SUMMARY || true
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Minor Updates" >> $GITHUB_STEP_SUMMARY
+            jq -r '.[] | select(.kind == "minor") | "- **\(.name)**: \(.installed_version) → \(.latest_version)"' outdated.json >> $GITHUB_STEP_SUMMARY || true
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Major Updates" >> $GITHUB_STEP_SUMMARY
+            jq -r '.[] | select(.kind == "major") | "- **\(.name)**: \(.installed_version) → \(.latest_version)"' outdated.json >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "No outdated dependencies found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+          
+      - name: Run security audit
+        run: |
+          echo "## Security Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if cargo audit; then
+            echo "✅ No security vulnerabilities found." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Security vulnerabilities detected!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the audit output above and update vulnerable dependencies." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  update-dependencies:
+    runs-on: ubuntu-latest
+    needs: [check-outdated, security-audit]
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Update dependencies
+        run: |
+          case "${{ github.event.inputs.update_type }}" in
+            "security")
+              echo "Updating security-related dependencies..."
+              cargo update --package uuid --package proptest --package criterion --package wasm-bindgen-test
+              ;;
+            "minor")
+              echo "Updating minor version dependencies..."
+              cargo update
+              ;;
+            "major")
+              echo "Updating all dependencies including major versions..."
+              cargo update --aggressive
+              ;;
+            "all")
+              echo "Updating all dependencies..."
+              cargo update
+              ;;
+          esac
+          
+      - name: Check compilation
+        run: |
+          if cargo check --workspace; then
+            echo "✅ Compilation successful"
+          else
+            echo "❌ Compilation failed"
+            exit 1
+          fi
+          
+      - name: Run tests
+        run: |
+          if cargo test --workspace; then
+            echo "✅ Tests passed"
+          else
+            echo "❌ Tests failed"
+            exit 1
+          fi
+          
+      - name: Run clippy
+        run: |
+          if cargo clippy --workspace --all-targets -- -D warnings; then
+            echo "✅ Clippy passed"
+          else
+            echo "❌ Clippy failed"
+            exit 1
+          fi
+          
+      - name: Run rustfmt
+        run: |
+          if cargo fmt --all -- --check; then
+            echo "✅ Rustfmt passed"
+          else
+            echo "❌ Rustfmt failed"
+            exit 1
+          fi
+          
+      - name: Create PR for updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update dependencies (${{ github.event.inputs.update_type }})'
+          title: 'Automated dependency updates (${{ github.event.inputs.update_type }})'
+          body: |
+            Automated dependency updates (${{ github.event.inputs.update_type }}):
+            
+            - Updated dependencies using `cargo update`
+            - Verified compilation and tests pass
+            - Ran clippy and rustfmt checks
+            
+            ## Changes
+            - Updated dependency versions in Cargo.toml files
+            - Updated Cargo.lock with new dependency versions
+            
+            ## Testing
+            - ✅ Compilation successful
+            - ✅ All tests pass
+            - ✅ Clippy checks pass
+            - ✅ Rustfmt checks pass
+            
+            Please review changes and merge if appropriate.
+            
+            ## Next Steps
+            1. Review the updated dependencies
+            2. Test the changes in your local environment
+            3. Merge if everything looks good
+            4. Monitor for any issues after deployment
+          branch: automated-dependency-updates
+          delete-branch: true
+
+  weekly-update:
+    runs-on: ubuntu-latest
+    needs: [check-outdated, security-audit]
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Update minor dependencies
+        run: |
+          echo "Updating minor version dependencies..."
+          cargo update
+          
+      - name: Check compilation
+        run: |
+          if cargo check --workspace; then
+            echo "✅ Compilation successful"
+          else
+            echo "❌ Compilation failed"
+            exit 1
+          fi
+          
+      - name: Run tests
+        run: |
+          if cargo test --workspace; then
+            echo "✅ Tests passed"
+          else
+            echo "❌ Tests failed"
+            exit 1
+          fi
+          
+      - name: Create PR for weekly updates
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: weekly dependency updates'
+          title: 'Weekly dependency updates'
+          body: |
+            Weekly automated dependency updates:
+            
+            - Updated minor version dependencies
+            - Verified compilation and tests pass
+            
+            ## Changes
+            - Updated dependency versions in Cargo.toml files
+            - Updated Cargo.lock with new dependency versions
+            
+            ## Testing
+            - ✅ Compilation successful
+            - ✅ All tests pass
+            
+            Please review changes and merge if appropriate.
+          branch: weekly-dependency-updates
+          delete-branch: true
+
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    needs: [update-dependencies, weekly-update]
+    if: failure()
+    steps:
+      - name: Notify on failure
+        run: |
+          echo "❌ Dependency update failed!"
+          echo "Please check the workflow logs for details."
+          echo "Manual intervention may be required."

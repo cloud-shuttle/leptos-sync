@@ -1,7 +1,8 @@
 //! Synchronization engine implementation
 
-pub mod engine;
 pub mod conflict;
+pub mod end_to_end;
+pub mod engine;
 pub mod realtime;
 
 use crate::{
@@ -13,7 +14,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
 
-pub use engine::{SyncEngine, SyncEngineError, SyncState, PeerInfo, PeerSyncStatus, DefaultConflictResolver};
+pub use end_to_end::{
+    CollectionMetadata, EndToEndSyncError, EndToEndSyncManager, SyncMessage as EndToEndSyncMessage,
+};
+pub use engine::{
+    DefaultConflictResolver, PeerInfo, PeerSyncStatus, SyncEngine, SyncEngineError, SyncState,
+};
 
 #[derive(Error, Debug)]
 pub enum SyncError {
@@ -47,8 +53,8 @@ pub enum SyncMessage<T> {
 }
 
 /// Legacy synchronization manager (for backward compatibility)
-pub struct SyncManager<S, T> 
-where 
+pub struct SyncManager<S, T>
+where
     S: LocalStorage,
     T: SyncTransport,
 {
@@ -107,7 +113,9 @@ where
         V::Error: Into<SyncError>,
     {
         // Store locally first
-        self.storage.set(key, value).await
+        self.storage
+            .set(key, value)
+            .await
             .map_err(|e| SyncError::SyncFailed(format!("Storage error: {}", e)))?;
 
         // Announce to peers if connected
@@ -117,7 +125,9 @@ where
                 data: value.clone(),
             };
             let serialized = serde_json::to_vec(&message)?;
-            self.transport.send(&serialized).await
+            self.transport
+                .send(&serialized)
+                .await
                 .map_err(|e| SyncError::SyncFailed(format!("Transport error: {}", e)))?;
         }
 
@@ -133,25 +143,34 @@ where
         let mut updates = Vec::new();
 
         // Check for incoming messages
-        let messages = self.transport.receive().await
+        let messages = self
+            .transport
+            .receive()
+            .await
             .map_err(|e| SyncError::SyncFailed(format!("Transport error: {}", e)))?;
-        
+
         for message_bytes in messages {
             match serde_json::from_slice::<SyncMessage<V>>(&message_bytes) {
                 Ok(SyncMessage::Sync { key, data }) => {
                     // Try to merge with existing data
-                    match self.storage.get::<V>(&key).await
-                        .map_err(|e| SyncError::SyncFailed(format!("Storage error: {}", e)))? {
+                    match self
+                        .storage
+                        .get::<V>(&key)
+                        .await
+                        .map_err(|e| SyncError::SyncFailed(format!("Storage error: {}", e)))?
+                    {
                         Some(mut existing) => {
                             existing.merge(&data).map_err(Into::into)?;
-                            self.storage.set(&key, &existing).await
-                                .map_err(|e| SyncError::SyncFailed(format!("Storage error: {}", e)))?;
+                            self.storage.set(&key, &existing).await.map_err(|e| {
+                                SyncError::SyncFailed(format!("Storage error: {}", e))
+                            })?;
                             updates.push((key, existing));
                         }
                         None => {
                             // No existing data, store as-is
-                            self.storage.set(&key, &data).await
-                                .map_err(|e| SyncError::SyncFailed(format!("Storage error: {}", e)))?;
+                            self.storage.set(&key, &data).await.map_err(|e| {
+                                SyncError::SyncFailed(format!("Storage error: {}", e))
+                            })?;
                             updates.push((key, data));
                         }
                     }
@@ -163,11 +182,15 @@ where
                 Ok(SyncMessage::Presence { replica_id }) => {
                     // Update peer info
                     let peer_info = PeerInfo {
-                        replica_id,
+                        replica_id: replica_id.clone(),
                         last_seen: chrono::Utc::now(),
                         is_online: true,
                         last_sync: None,
                         sync_status: PeerSyncStatus::Never,
+                        // Additional fields for compatibility
+                        id: replica_id,
+                        status: PeerSyncStatus::Never,
+                        version: 1,
                     };
                     self.peers.insert(replica_id, peer_info);
                 }
@@ -190,7 +213,9 @@ where
             replica_id: self.replica_id,
         };
         let serialized = serde_json::to_vec(&message)?;
-        self.transport.send(&serialized).await
+        self.transport
+            .send(&serialized)
+            .await
             .map_err(|e| SyncError::SyncFailed(format!("Transport error: {}", e)))?;
 
         Ok(())

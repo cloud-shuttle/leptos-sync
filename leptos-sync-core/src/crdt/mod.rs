@@ -3,7 +3,7 @@
 //! This module provides various CRDT implementations that can be used
 //! to build eventually consistent distributed applications.
 
-mod crdt_basic;
+pub mod basic;
 pub mod list;
 pub mod tree;
 pub mod graph;
@@ -11,7 +11,7 @@ pub mod builder;
 pub mod advanced;
 
 // Re-export basic CRDTs
-pub use crdt_basic::{LwwRegister, LwwMap, GCounter, ReplicaId, Mergeable, CRDT};
+pub use basic::{LwwRegister, LwwMap, GCounter, ReplicaId, Mergeable, CRDT};
 
 pub use list::{
     ElementId, ElementMetadata, ListElement, ListStrategy, ListConfig,

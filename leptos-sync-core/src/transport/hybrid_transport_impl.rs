@@ -1,8 +1,8 @@
-use super::{SyncTransport, TransportError};
-use super::leptos_ws_pro_transport::LeptosWsProTransport;
 use super::compatibility_layer::CompatibilityTransport;
+use super::leptos_ws_pro_transport::LeptosWsProTransport;
 use super::memory::InMemoryTransport;
 use super::websocket::WebSocketTransport;
+use super::{SyncTransport, TransportError};
 
 /// Hybrid transport that can use multiple backends
 #[derive(Clone)]
@@ -35,9 +35,9 @@ impl HybridTransport {
     }
 
     pub fn with_fallback(primary: HybridTransport, fallback: HybridTransport) -> Self {
-        Self::Fallback { 
-            primary: Box::new(primary), 
-            fallback: Box::new(fallback) 
+        Self::Fallback {
+            primary: Box::new(primary),
+            fallback: Box::new(fallback),
         }
     }
 
@@ -49,8 +49,10 @@ impl HybridTransport {
 
     pub async fn connect(&self) -> Result<(), TransportError> {
         match self {
-            HybridTransport::WebSocket(ws) => ws.connect().await,
-            HybridTransport::LeptosWsPro(leptos_ws) => leptos_ws.connect().await.map_err(|e| e.into()),
+            HybridTransport::WebSocket(ws) => ws.connect().await.map_err(TransportError::from),
+            HybridTransport::LeptosWsPro(leptos_ws) => {
+                leptos_ws.connect().await.map_err(|e| e.into())
+            }
             HybridTransport::Compatibility(compat) => compat.connect().await.map_err(|e| e.into()),
             HybridTransport::InMemory(_) => Ok(()), // In-memory is always "connected"
             HybridTransport::Fallback { primary, fallback } => {
@@ -65,9 +67,13 @@ impl HybridTransport {
 
     pub async fn disconnect(&self) -> Result<(), TransportError> {
         match self {
-            HybridTransport::WebSocket(ws) => ws.disconnect().await,
-            HybridTransport::LeptosWsPro(leptos_ws) => leptos_ws.disconnect().await.map_err(|e| e.into()),
-            HybridTransport::Compatibility(compat) => compat.disconnect().await.map_err(|e| e.into()),
+            HybridTransport::WebSocket(ws) => ws.disconnect().await.map_err(TransportError::from),
+            HybridTransport::LeptosWsPro(leptos_ws) => {
+                leptos_ws.disconnect().await.map_err(|e| e.into())
+            }
+            HybridTransport::Compatibility(compat) => {
+                compat.disconnect().await.map_err(|e| e.into())
+            }
             HybridTransport::InMemory(_) => Ok(()), // In-memory disconnect is always successful
             HybridTransport::Fallback { primary, fallback } => {
                 // Disconnect both transports
@@ -82,12 +88,20 @@ impl HybridTransport {
 impl SyncTransport for HybridTransport {
     type Error = TransportError;
 
-    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
+    fn send<'a>(
+        &'a self,
+        data: &'a [u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>>
+    {
         Box::pin(async move {
             match self {
                 HybridTransport::WebSocket(ws) => ws.send(data).await,
-                HybridTransport::LeptosWsPro(leptos_ws) => leptos_ws.send(data).await.map_err(|e| e.into()),
-                HybridTransport::Compatibility(compat) => compat.send(data).await.map_err(|e| e.into()),
+                HybridTransport::LeptosWsPro(leptos_ws) => {
+                    leptos_ws.send(data).await.map_err(|e| e.into())
+                }
+                HybridTransport::Compatibility(compat) => {
+                    compat.send(data).await.map_err(|e| e.into())
+                }
                 HybridTransport::InMemory(mem) => mem.send(data).await,
                 HybridTransport::Fallback { primary, fallback } => {
                     // Try primary first, fall back to fallback
@@ -100,12 +114,20 @@ impl SyncTransport for HybridTransport {
         })
     }
 
-    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
+    fn receive(
+        &self,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>,
+    > {
         Box::pin(async move {
             match self {
                 HybridTransport::WebSocket(ws) => ws.receive().await,
-                HybridTransport::LeptosWsPro(leptos_ws) => leptos_ws.receive().await.map_err(|e| e.into()),
-                HybridTransport::Compatibility(compat) => compat.receive().await.map_err(|e| e.into()),
+                HybridTransport::LeptosWsPro(leptos_ws) => {
+                    leptos_ws.receive().await.map_err(|e| e.into())
+                }
+                HybridTransport::Compatibility(compat) => {
+                    compat.receive().await.map_err(|e| e.into())
+                }
                 HybridTransport::InMemory(mem) => mem.receive().await,
                 HybridTransport::Fallback { primary, fallback } => {
                     // Try primary first, fall back to fallback

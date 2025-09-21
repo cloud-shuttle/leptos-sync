@@ -83,88 +83,116 @@ impl EncryptionManager {
 
     /// Encrypt data using AES-256-GCM
     async fn encrypt_aes256(&self, data: &[u8], key_data: &[u8]) -> Result<Vec<u8>, SyncError> {
-        use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
-        
-        let key = Key::<Aes256Gcm>::from_slice(key_data);
-        let cipher = Aes256Gcm::new(key);
-        
-        // Generate random nonce
-        let mut nonce_bytes = [0u8; 12];
-        OsRng.fill(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-        
-        // Encrypt data
-        let ciphertext = cipher.encrypt(nonce, data)
-            .map_err(|e| SyncError::EncryptionError(format!("AES-256 encryption failed: {}", e)))?;
-        
-        // Prepend nonce to ciphertext
-        let mut result = nonce_bytes.to_vec();
-        result.extend_from_slice(&ciphertext);
-        
-        Ok(result)
+        #[cfg(feature = "encryption")]
+        {
+            use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+            
+            let key = Key::<Aes256Gcm>::from_slice(key_data);
+            let cipher = Aes256Gcm::new(key);
+            
+            // Generate random nonce
+            let mut nonce_bytes = [0u8; 12];
+            OsRng.fill(&mut nonce_bytes);
+            let nonce = Nonce::from_slice(&nonce_bytes);
+            
+            // Encrypt data
+            let ciphertext = cipher.encrypt(nonce, data)
+                .map_err(|e| SyncError::EncryptionError(format!("AES-256 encryption failed: {}", e)))?;
+            
+            // Prepend nonce to ciphertext
+            let mut result = nonce_bytes.to_vec();
+            result.extend_from_slice(&ciphertext);
+            
+            Ok(result)
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            Err(SyncError::EncryptionError("Encryption feature not enabled".to_string()))
+        }
     }
 
     /// Decrypt data using AES-256-GCM
     async fn decrypt_aes256(&self, encrypted_data: &[u8], key_data: &[u8]) -> Result<Vec<u8>, SyncError> {
-        use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
-        
-        if encrypted_data.len() < 12 {
-            return Err(SyncError::EncryptionError("Invalid encrypted data length".to_string()));
-        }
+        #[cfg(feature = "encryption")]
+        {
+            use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+            
+            if encrypted_data.len() < 12 {
+                return Err(SyncError::EncryptionError("Invalid encrypted data length".to_string()));
+            }
 
-        let key = Key::<Aes256Gcm>::from_slice(key_data);
-        let cipher = Aes256Gcm::new(key);
-        
-        // Extract nonce and ciphertext
-        let nonce = Nonce::from_slice(&encrypted_data[..12]);
-        let ciphertext = &encrypted_data[12..];
-        
-        // Decrypt data
-        let plaintext = cipher.decrypt(nonce, ciphertext)
-            .map_err(|e| SyncError::EncryptionError(format!("AES-256 decryption failed: {}", e)))?;
-        
-        Ok(plaintext)
+            let key = Key::<Aes256Gcm>::from_slice(key_data);
+            let cipher = Aes256Gcm::new(key);
+            
+            // Extract nonce and ciphertext
+            let nonce = Nonce::from_slice(&encrypted_data[..12]);
+            let ciphertext = &encrypted_data[12..];
+            
+            // Decrypt data
+            let plaintext = cipher.decrypt(nonce, ciphertext)
+                .map_err(|e| SyncError::EncryptionError(format!("AES-256 decryption failed: {}", e)))?;
+            
+            Ok(plaintext)
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            Err(SyncError::EncryptionError("Encryption feature not enabled".to_string()))
+        }
     }
 
     /// Encrypt data using AES-128-GCM
     async fn encrypt_aes128(&self, data: &[u8], key_data: &[u8]) -> Result<Vec<u8>, SyncError> {
-        use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
-        
-        // Use AES-256-GCM with 128-bit key (first 16 bytes)
-        let key = Key::<Aes256Gcm>::from_slice(&key_data[..16]);
-        let cipher = Aes256Gcm::new(key);
-        
-        let mut nonce_bytes = [0u8; 12];
-        OsRng.fill(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-        
-        let ciphertext = cipher.encrypt(nonce, data)
-            .map_err(|e| SyncError::EncryptionError(format!("AES-128 encryption failed: {}", e)))?;
-        
-        let mut result = nonce_bytes.to_vec();
-        result.extend_from_slice(&ciphertext);
-        
-        Ok(result)
+        #[cfg(feature = "encryption")]
+        {
+            use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+            
+            // Use AES-256-GCM with 128-bit key (first 16 bytes)
+            let key = Key::<Aes256Gcm>::from_slice(&key_data[..16]);
+            let cipher = Aes256Gcm::new(key);
+            
+            let mut nonce_bytes = [0u8; 12];
+            OsRng.fill(&mut nonce_bytes);
+            let nonce = Nonce::from_slice(&nonce_bytes);
+            
+            let ciphertext = cipher.encrypt(nonce, data)
+                .map_err(|e| SyncError::EncryptionError(format!("AES-128 encryption failed: {}", e)))?;
+            
+            let mut result = nonce_bytes.to_vec();
+            result.extend_from_slice(&ciphertext);
+            
+            Ok(result)
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            Err(SyncError::EncryptionError("Encryption feature not enabled".to_string()))
+        }
     }
 
     /// Decrypt data using AES-128-GCM
     async fn decrypt_aes128(&self, encrypted_data: &[u8], key_data: &[u8]) -> Result<Vec<u8>, SyncError> {
-        use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
-        
-        if encrypted_data.len() < 12 {
-            return Err(SyncError::EncryptionError("Invalid encrypted data length".to_string()));
-        }
+        #[cfg(feature = "encryption")]
+        {
+            use aes_gcm::{Aes256Gcm, Key, Nonce, aead::{Aead, KeyInit}};
+            
+            if encrypted_data.len() < 12 {
+                return Err(SyncError::EncryptionError("Invalid encrypted data length".to_string()));
+            }
 
-        let key = Key::<Aes256Gcm>::from_slice(&key_data[..16]);
-        let cipher = Aes256Gcm::new(key);
-        
-        let nonce = Nonce::from_slice(&encrypted_data[..12]);
-        let ciphertext = &encrypted_data[12..];
-        
-        let plaintext = cipher.decrypt(nonce, ciphertext)
-            .map_err(|e| SyncError::EncryptionError(format!("AES-128 decryption failed: {}", e)))?;
-        
-        Ok(plaintext)
+            let key = Key::<Aes256Gcm>::from_slice(&key_data[..16]);
+            let cipher = Aes256Gcm::new(key);
+            
+            let nonce = Nonce::from_slice(&encrypted_data[..12]);
+            let ciphertext = &encrypted_data[12..];
+            
+            let plaintext = cipher.decrypt(nonce, ciphertext)
+                .map_err(|e| SyncError::EncryptionError(format!("AES-128 decryption failed: {}", e)))?;
+            
+            Ok(plaintext)
+        }
+        #[cfg(not(feature = "encryption"))]
+        {
+            Err(SyncError::EncryptionError("Encryption feature not enabled".to_string()))
+        }
     }
 
 }

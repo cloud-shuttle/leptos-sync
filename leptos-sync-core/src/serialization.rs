@@ -109,7 +109,7 @@ impl CRDTSerializer {
     /// Serialize a CRDT with optional compression
     pub fn serialize_crdt<T: Serialize>(&self, value: &T) -> Result<Vec<u8>, SerializationError> {
         let serialized = self.serializer.serialize(value)?;
-        
+
         if self.compression_enabled && serialized.len() > 1024 {
             // Only compress if data is larger than 1KB
             self.compress(&serialized)
@@ -140,13 +140,21 @@ impl CRDTSerializer {
     /// Compress data using flate2
     #[cfg(not(target_arch = "wasm32"))]
     fn compress(&self, data: &[u8]) -> Result<Vec<u8>, SerializationError> {
-        use flate2::write::DeflateEncoder;
-        use flate2::Compression;
-        use std::io::Write;
+        #[cfg(feature = "compression")]
+        {
+            use flate2::write::DeflateEncoder;
+            use flate2::Compression;
+            use std::io::Write;
 
-        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data)?;
-        Ok(encoder.finish()?)
+            let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(data)?;
+            Ok(encoder.finish()?)
+        }
+        #[cfg(not(feature = "compression"))]
+        {
+            // Return uncompressed data when compression is not available
+            Ok(data.to_vec())
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -159,13 +167,21 @@ impl CRDTSerializer {
     /// Decompress data using flate2
     #[cfg(not(target_arch = "wasm32"))]
     fn decompress(&self, data: &[u8]) -> Result<Vec<u8>, SerializationError> {
-        use flate2::read::DeflateDecoder;
-        use std::io::Read;
+        #[cfg(feature = "compression")]
+        {
+            use flate2::read::DeflateDecoder;
+            use std::io::Read;
 
-        let mut decoder = DeflateDecoder::new(data);
-        let mut decompressed = Vec::new();
-        decoder.read_to_end(&mut decompressed)?;
-        Ok(decompressed)
+            let mut decoder = DeflateDecoder::new(data);
+            let mut decompressed = Vec::new();
+            decoder.read_to_end(&mut decompressed)?;
+            Ok(decompressed)
+        }
+        #[cfg(not(feature = "compression"))]
+        {
+            // Return data as-is when compression is not available
+            Ok(data.to_vec())
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -253,7 +269,8 @@ pub mod benchmark {
     impl SerializationBenchmark {
         /// Get the performance improvement ratio
         pub fn serialize_improvement_ratio(&self) -> f64 {
-            self.json_serialize_time.as_nanos() as f64 / self.bincode_serialize_time.as_nanos() as f64
+            self.json_serialize_time.as_nanos() as f64
+                / self.bincode_serialize_time.as_nanos() as f64
         }
 
         /// Get the size reduction ratio
@@ -277,7 +294,10 @@ pub mod benchmark {
             println!("  Size:        {} bytes", self.json_size);
             println!();
             println!("Improvements:");
-            println!("  Serialize:   {:.2}x faster", self.serialize_improvement_ratio());
+            println!(
+                "  Serialize:   {:.2}x faster",
+                self.serialize_improvement_ratio()
+            );
             println!("  Size:        {:.2}x smaller", self.size_reduction_ratio());
         }
     }
@@ -291,15 +311,17 @@ mod tests {
     #[test]
     fn test_serialization_formats() {
         let data = LwwRegister::new("test_value".to_string(), ReplicaId::default());
-        
+
         let bincode_serializer = Serializer::new(SerializationFormat::Bincode);
         let json_serializer = Serializer::new(SerializationFormat::Json);
 
         let bincode_bytes = bincode_serializer.serialize(&data).unwrap();
         let json_bytes = json_serializer.serialize(&data).unwrap();
 
-        let bincode_deserialized: LwwRegister<String> = bincode_serializer.deserialize(&bincode_bytes).unwrap();
-        let json_deserialized: LwwRegister<String> = json_serializer.deserialize(&json_bytes).unwrap();
+        let bincode_deserialized: LwwRegister<String> =
+            bincode_serializer.deserialize(&bincode_bytes).unwrap();
+        let json_deserialized: LwwRegister<String> =
+            json_serializer.deserialize(&json_bytes).unwrap();
 
         assert_eq!(data, bincode_deserialized);
         assert_eq!(data, json_deserialized);

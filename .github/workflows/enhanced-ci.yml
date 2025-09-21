@@ -1,0 +1,527 @@
+name: Enhanced CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Quick validation job that runs first
+  quick-check:
+    name: Quick Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-quick-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+    
+    - name: Check compilation
+      run: cargo check --workspace --all-targets
+    
+    - name: Run clippy
+      run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # Comprehensive unit tests
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    strategy:
+      matrix:
+        rust-version: [stable, beta]
+        features: [default, "encryption", "compression", "metrics"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust-version }}
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-unit-${{ matrix.rust-version }}-${{ matrix.features }}-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install test dependencies
+      run: |
+        cargo install cargo-tarpaulin
+        cargo install cargo-audit
+    
+    - name: Run unit tests
+      run: |
+        cargo test --workspace --lib --bins --features "${{ matrix.features }}"
+    
+    - name: Run documentation tests
+      run: |
+        cargo test --workspace --doc --features "${{ matrix.features }}"
+    
+    - name: Run security audit
+      run: |
+        cargo audit --deny warnings
+
+  # IndexedDB-specific tests
+  indexeddb-tests:
+    name: IndexedDB Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Install wasm-pack
+      uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        version: "0.12.1"
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          pkg
+        key: ${{ runner.os }}-cargo-indexeddb-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build WASM package
+      run: |
+        wasm-pack build --target web --out-dir pkg leptos-sync-core
+    
+    - name: Run IndexedDB tests
+      run: |
+        cargo test --package leptos-sync-core --test indexeddb_tests
+    
+    - name: Run WASM tests
+      run: |
+        wasm-pack test --node --headless
+
+  # WebSocket transport tests
+  websocket-tests:
+    name: WebSocket Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-websocket-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run WebSocket transport tests
+      run: |
+        cargo test --package leptos-sync-core --test websocket_tests
+        cargo test --package leptos-sync-core --test leptos_ws_pro_tests
+        cargo test --package leptos-sync-core --test real_websocket_tests
+
+  # Integration tests with real services
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, indexeddb-tests, websocket-tests]
+    services:
+      websocket-server:
+        image: node:18
+        ports:
+          - 3001:3001
+        options: --health-cmd "curl -f http://localhost:3001/health" --health-interval 10s --health-timeout 5s --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Start WebSocket server
+      run: |
+        cd tests/test-server
+        npm install
+        npm start &
+        sleep 10
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run integration tests
+      run: |
+        cargo test --test integration -- --test-threads=1
+    
+    - name: Run contract tests
+      run: |
+        cargo test --test contracts -- --test-threads=1
+    
+    - name: Run multi-replica sync tests
+      run: |
+        cargo test --test multi_replica_sync -- --test-threads=1
+
+  # End-to-end tests with Playwright
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, indexeddb-tests, websocket-tests]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Playwright
+      run: |
+        npm install -g playwright
+        npx playwright install --with-deps
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Install wasm-pack
+      uses: jetli/wasm-pack-action@v0.3.0
+      with:
+        version: "0.12.1"
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          pkg
+        key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build WASM packages
+      run: |
+        wasm-pack build --target web --out-dir pkg leptos-sync-core
+    
+    - name: Build examples
+      run: |
+        cd examples/text_editor_demo
+        wasm-pack build --target web --out-dir pkg
+        cd ../task_manager_demo
+        wasm-pack build --target web --out-dir pkg
+        cd ../document_editor_demo
+        wasm-pack build --target web --out-dir pkg
+        cd ../project_manager_demo
+        wasm-pack build --target web --out-dir pkg
+    
+    - name: Run E2E tests
+      run: |
+        playwright test
+    
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+
+  # Performance benchmarks
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install criterion
+      run: |
+        cargo install cargo-criterion
+    
+    - name: Run performance benchmarks
+      run: |
+        cargo bench --bench sync_performance
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: target/criterion/
+        retention-days: 30
+
+  # Code coverage
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: quick-check
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install tarpaulin
+      run: |
+        cargo install cargo-tarpaulin
+    
+    - name: Generate coverage
+      run: |
+        cargo tarpaulin --out xml --output-dir coverage/ --workspace --exclude-files '*/tests/*' '*/examples/*'
+    
+    - name: Upload to codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: coverage/cobertura.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+    
+    - name: Upload coverage artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
+        retention-days: 30
+
+  # Security tests
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: quick-check
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-security-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install security tools
+      run: |
+        cargo install cargo-audit
+        cargo install cargo-deny
+    
+    - name: Run security audit
+      run: |
+        cargo audit --deny warnings
+    
+    - name: Run dependency check
+      run: |
+        cargo deny check
+    
+    - name: Run security tests
+      run: |
+        cargo test --package leptos-sync-core --test security_tests
+
+  # Cross-platform compatibility
+  compatibility-tests:
+    name: Compatibility Tests
+    runs-on: ${{ matrix.os }}
+    needs: quick-check
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust-version: [stable, beta]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust-version }}
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-compat-${{ matrix.rust-version }}-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run compatibility tests
+      run: |
+        cargo test --workspace --lib
+    
+    - name: Run clippy
+      run: |
+        cargo clippy --workspace --all-targets -- -D warnings
+
+  # Build and package
+  build:
+    name: Build & Package
+    runs-on: ${{ matrix.os }}
+    needs: [unit-tests, integration-tests, e2e-tests]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Build release
+      run: |
+        cargo build --workspace --release
+    
+    - name: Build WASM packages
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cargo install wasm-pack
+        wasm-pack build --target web --out-dir pkg leptos-sync-core --release
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ matrix.os }}
+        path: |
+          target/release/
+          pkg/
+        retention-days: 7
+
+  # Test summary and notifications
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, indexeddb-tests, websocket-tests, integration-tests, e2e-tests, performance-tests, coverage, security-tests, compatibility-tests, build]
+    if: always()
+    
+    steps:
+    - name: Test Summary
+      run: |
+        echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Unit Tests | ${{ needs.unit-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| IndexedDB Tests | ${{ needs.indexeddb-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| WebSocket Tests | ${{ needs.websocket-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Performance Tests | ${{ needs.performance-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Coverage | ${{ needs.coverage.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Tests | ${{ needs.security-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Compatibility Tests | ${{ needs.compatibility-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check if all tests passed
+        if [[ "${{ needs.unit-tests.result }}" == "success" && 
+              "${{ needs.indexeddb-tests.result }}" == "success" && 
+              "${{ needs.websocket-tests.result }}" == "success" && 
+              "${{ needs.integration-tests.result }}" == "success" && 
+              "${{ needs.e2e-tests.result }}" == "success" && 
+              "${{ needs.performance-tests.result }}" == "success" && 
+              "${{ needs.coverage.result }}" == "success" && 
+              "${{ needs.security-tests.result }}" == "success" && 
+              "${{ needs.compatibility-tests.result }}" == "success" && 
+              "${{ needs.build.result }}" == "success" ]]; then
+          echo "✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some tests failed. Please check the logs above." >> $GITHUB_STEP_SUMMARY
+        fi

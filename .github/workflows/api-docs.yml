@@ -1,0 +1,251 @@
+name: API Documentation
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/api/**']
+  pull_request:
+    branches: [main]
+    paths: ['docs/api/**']
+
+jobs:
+  validate-schemas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install JSON Schema validation tools
+        run: |
+          npm install -g ajv-cli
+          npm install -g @apidevtools/swagger-parser
+          
+      - name: Validate JSON schemas
+        run: |
+          echo "Validating CRDT message schema..."
+          ajv validate -s docs/api/schemas/crdt-message.json -d '{"type":"delta","version":"0.8.4","timestamp":"2022-01-01T00:00:00Z","replica_id":"550e8400-e29b-41d4-a716-446655440000","collection_id":"test","crdt_type":"lww_register","delta":{}}'
+          
+      - name: Validate OpenAPI specifications
+        run: |
+          echo "Validating WebSocket API specification..."
+          swagger-parser validate docs/api/websocket-api.yaml
+          
+          echo "Validating REST API specification..."
+          swagger-parser validate docs/api/rest-api.yaml
+
+  generate-docs:
+    runs-on: ubuntu-latest
+    needs: validate-schemas
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install documentation tools
+        run: |
+          npm install -g redoc-cli
+          npm install -g @redocly/cli
+          
+      - name: Create docs directory
+        run: mkdir -p docs/generated
+        
+      - name: Generate WebSocket API documentation
+        run: |
+          redoc-cli build docs/api/websocket-api.yaml --output docs/generated/websocket-api.html --title "Leptos-Sync WebSocket API"
+          
+      - name: Generate REST API documentation
+        run: |
+          redoc-cli build docs/api/rest-api.yaml --output docs/generated/rest-api.html --title "Leptos-Sync REST API"
+          
+      - name: Generate schema documentation
+        run: |
+          cat > docs/generated/schemas.md << 'EOF'
+          # API Schemas
+          
+          ## CRDT Message Schema
+          
+          The CRDT message schema defines the structure for all synchronization messages.
+          
+          ### Schema Location
+          - **File**: `docs/api/schemas/crdt-message.json`
+          - **Version**: 0.8.4
+          - **Format**: JSON Schema Draft 07
+          
+          ### Message Types
+          
+          #### Delta Message
+          Used for CRDT synchronization operations.
+          
+          ```json
+          {
+            "type": "delta",
+            "version": "0.8.4",
+            "timestamp": "2022-01-01T00:00:00Z",
+            "replica_id": "550e8400-e29b-41d4-a716-446655440000",
+            "collection_id": "document-123",
+            "crdt_type": "lww_register",
+            "delta": {
+              "operation": "set",
+              "value": "Hello, World!"
+            }
+          }
+          ```
+          
+          #### Heartbeat Message
+          Used for connection health monitoring.
+          
+          ```json
+          {
+            "type": "heartbeat",
+            "version": "0.8.4",
+            "timestamp": "2022-01-01T00:00:00Z",
+            "replica_id": "550e8400-e29b-41d4-a716-446655440000"
+          }
+          ```
+          
+          #### Peer Join Message
+          Sent when a peer joins the synchronization session.
+          
+          ```json
+          {
+            "type": "peer_join",
+            "version": "0.8.4",
+            "timestamp": "2022-01-01T00:00:00Z",
+            "replica_id": "550e8400-e29b-41d4-a716-446655440000",
+            "user_info": {
+              "user_id": "user123",
+              "username": "alice",
+              "display_name": "Alice Johnson"
+            }
+          }
+          ```
+          
+          ### CRDT Types
+          
+          The following CRDT types are supported:
+          
+          - `lww_register` - Last-Write-Wins Register
+          - `lww_map` - Last-Write-Wins Map
+          - `g_counter` - Grow-only Counter
+          - `rga` - Replicated Growable Array
+          - `lseq` - Logoot Sequence
+          - `tree` - Tree CRDT
+          - `graph` - Graph CRDT
+          
+          EOF
+          
+      - name: Create index page
+        run: |
+          cat > docs/generated/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Leptos-Sync API Documentation</title>
+              <style>
+                  body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                  h1 { color: #333; }
+                  .api-link { display: block; margin: 10px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; text-decoration: none; color: #333; }
+                  .api-link:hover { background: #e5e5e5; }
+                  .version { color: #666; font-size: 0.9em; }
+              </style>
+          </head>
+          <body>
+              <h1>Leptos-Sync API Documentation</h1>
+              <p class="version">Version 0.8.4</p>
+              
+              <h2>API Specifications</h2>
+              <a href="websocket-api.html" class="api-link">
+                  <strong>WebSocket API</strong><br>
+                  Real-time synchronization API for CRDT operations
+              </a>
+              
+              <a href="rest-api.html" class="api-link">
+                  <strong>REST API</strong><br>
+                  HTTP API for collection management and metadata
+              </a>
+              
+              <h2>Schema Documentation</h2>
+              <a href="schemas.md" class="api-link">
+                  <strong>Message Schemas</strong><br>
+                  JSON Schema definitions for all message types
+              </a>
+              
+              <h2>Contract Testing</h2>
+              <p>Contract tests ensure compatibility between client and server implementations:</p>
+              <ul>
+                  <li>Server validates incoming messages against schemas</li>
+                  <li>Client handles all server message types correctly</li>
+                  <li>Version compatibility is maintained</li>
+              </ul>
+          </body>
+          </html>
+          EOF
+          
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-documentation
+          path: docs/generated/
+          retention-days: 30
+
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Install dependencies
+        run: |
+          cargo install jsonschema-cli
+          
+      - name: Run contract tests
+        run: |
+          cargo test --package leptos-sync-core contracts --lib
+          
+      - name: Validate schema compliance
+        run: |
+          echo "Running schema compliance tests..."
+          cargo test --package leptos-sync-core validation::schema_validator::tests --lib
+
+  deploy-docs:
+    runs-on: ubuntu-latest
+    needs: [validate-schemas, generate-docs, contract-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download documentation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: api-documentation
+          path: docs/generated/
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/generated
+          cname: api.leptos-sync.io

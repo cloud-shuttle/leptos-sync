@@ -1,0 +1,490 @@
+openapi: 3.0.3
+info:
+  title: Leptos-Sync WebSocket API
+  version: 0.8.4
+  description: |
+    Real-time synchronization API for CRDT operations using WebSocket connections.
+    
+    This API enables real-time bidirectional synchronization of Conflict-free Replicated Data Types (CRDTs)
+    between multiple clients. It supports various CRDT types including Last-Write-Wins registers,
+    Grow-only counters, Replicated Growable Arrays, and more.
+    
+    ## Features
+    - Real-time CRDT synchronization
+    - Peer presence tracking
+    - Automatic reconnection handling
+    - Message compression support
+    - Schema validation
+  contact:
+    name: Leptos-Sync Team
+    url: https://github.com/leptos-sync/leptos-sync
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: ws://localhost:3001
+    description: Development server
+  - url: wss://api.leptos-sync.io
+    description: Production server
+  - url: wss://staging-api.leptos-sync.io
+    description: Staging server
+
+paths:
+  /sync:
+    get:
+      summary: WebSocket connection for CRDT synchronization
+      description: |
+        Establishes a real-time WebSocket connection for bidirectional CRDT synchronization.
+        
+        The connection supports:
+        - Sending and receiving CRDT deltas
+        - Peer presence tracking
+        - Heartbeat monitoring
+        - Automatic reconnection
+        
+        All messages must conform to the CRDT message schema.
+      parameters:
+        - name: room_id
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,50}$'
+            description: Optional room identifier for scoped synchronization
+          example: "document-123"
+        - name: user_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+            description: User identifier for presence tracking
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            default: "0.8.4"
+            description: Protocol version to use
+          example: "0.8.4"
+      responses:
+        '101':
+          description: WebSocket connection established successfully
+          headers:
+            Upgrade:
+              schema:
+                type: string
+                enum: [websocket]
+              description: Protocol upgrade to WebSocket
+            Connection:
+              schema:
+                type: string
+                enum: [Upgrade]
+              description: Connection upgrade header
+            Sec-WebSocket-Accept:
+              schema:
+                type: string
+              description: WebSocket accept key
+        '400':
+          description: Bad Request - Invalid parameters or malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid room_id format"
+                code: "INVALID_PARAMETER"
+        '401':
+          description: Unauthorized - Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Authentication required"
+                code: "UNAUTHORIZED"
+        '403':
+          description: Forbidden - Access denied to the requested room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Access denied to room"
+                code: "FORBIDDEN"
+        '429':
+          description: Too Many Requests - Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Rate limit exceeded"
+                code: "RATE_LIMIT_EXCEEDED"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Internal server error"
+                code: "INTERNAL_ERROR"
+
+components:
+  schemas:
+    CRDTMessage:
+      $ref: './schemas/crdt-message.json'
+    
+    DeltaMessage:
+      type: object
+      description: CRDT delta synchronization message
+      properties:
+        type:
+          type: string
+          enum: [delta]
+          description: Message type identifier
+        collection_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Unique identifier for the synchronized collection
+          example: "document-123"
+        crdt_type:
+          $ref: '#/components/schemas/CRDTType'
+        delta:
+          type: object
+          description: CRDT-specific delta operation
+          additionalProperties: true
+          example:
+            operation: "set"
+            value: "Hello, World!"
+            timestamp: 1640995200000
+        timestamp:
+          type: string
+          format: date-time
+          description: When the delta was created
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the replica that created this delta
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+      required: [type, collection_id, crdt_type, delta, timestamp, replica_id, version]
+
+    CRDTType:
+      type: string
+      enum: 
+        - lww_register
+        - lww_map
+        - g_counter
+        - rga
+        - lseq
+        - tree
+        - graph
+      description: Type of CRDT being synchronized
+      example: "lww_register"
+
+    HeartbeatMessage:
+      type: object
+      description: Heartbeat message to maintain connection and provide status
+      properties:
+        type:
+          type: string
+          enum: [heartbeat]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the heartbeat was sent
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the replica sending the heartbeat
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        stats:
+          type: object
+          description: Optional statistics about the replica's state
+          properties:
+            messages_sent:
+              type: integer
+              minimum: 0
+              description: Number of messages sent by this replica
+              example: 42
+            messages_received:
+              type: integer
+              minimum: 0
+              description: Number of messages received by this replica
+              example: 38
+            last_sync:
+              type: string
+              format: date-time
+              description: Timestamp of last successful synchronization
+              example: "2022-01-01T00:00:00Z"
+            collections_count:
+              type: integer
+              minimum: 0
+              description: Number of collections managed by this replica
+              example: 3
+      required: [type, timestamp, replica_id, version]
+
+    PeerJoinMessage:
+      type: object
+      description: Message sent when a peer joins the synchronization session
+      properties:
+        type:
+          type: string
+          enum: [peer_join]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the peer joined
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the joining replica
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        user_info:
+          $ref: '#/components/schemas/UserInfo'
+      required: [type, timestamp, replica_id, version]
+
+    PeerLeaveMessage:
+      type: object
+      description: Message sent when a peer leaves the synchronization session
+      properties:
+        type:
+          type: string
+          enum: [peer_leave]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the peer left
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the leaving replica
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        reason:
+          type: string
+          enum: [disconnect, timeout, error, manual]
+          description: Reason for leaving
+          example: "disconnect"
+      required: [type, timestamp, replica_id, version]
+
+    WelcomeMessage:
+      type: object
+      description: Welcome message sent by server to new clients
+      properties:
+        type:
+          type: string
+          enum: [welcome]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the welcome message was sent
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: Server replica ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        peer_id:
+          type: string
+          format: uuid
+          description: Assigned peer ID for this connection
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        server_info:
+          $ref: '#/components/schemas/ServerInfo'
+      required: [type, timestamp, replica_id, version, peer_id, server_info]
+
+    PresenceMessage:
+      type: object
+      description: Presence update message for peer status changes
+      properties:
+        type:
+          type: string
+          enum: [presence]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the presence update occurred
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the replica sending the presence update
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        peer_id:
+          type: string
+          format: uuid
+          description: ID of the peer whose presence is being updated
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        action:
+          type: string
+          enum: [join, leave, update]
+          description: Type of presence action
+          example: "join"
+        user_info:
+          $ref: '#/components/schemas/UserInfo'
+      required: [type, timestamp, replica_id, version, peer_id, action]
+
+    BinaryAckMessage:
+      type: object
+      description: Acknowledgment for binary data transfer
+      properties:
+        type:
+          type: string
+          enum: [binary_ack]
+          description: Message type identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: When the acknowledgment was sent
+          example: "2022-01-01T00:00:00Z"
+        replica_id:
+          type: string
+          format: uuid
+          description: ID of the replica sending the acknowledgment
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Protocol version
+          example: "0.8.4"
+        peer_id:
+          type: string
+          format: uuid
+          description: ID of the peer that sent the binary data
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        size:
+          type: integer
+          minimum: 0
+          description: Size of the acknowledged binary data in bytes
+          example: 1024
+      required: [type, timestamp, replica_id, version, peer_id, size]
+
+    UserInfo:
+      type: object
+      description: User information for peer identification
+      properties:
+        user_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Unique user identifier
+          example: "user123"
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Display username
+          example: "alice"
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Human-readable display name
+          example: "Alice Johnson"
+        avatar_url:
+          type: string
+          format: uri
+          description: URL to user's avatar image
+          example: "https://example.com/avatars/alice.jpg"
+      required: [user_id]
+
+    ServerInfo:
+      type: object
+      description: Information about the server
+      properties:
+        server_id:
+          type: string
+          description: Unique server identifier
+          example: "server-001"
+        version:
+          type: string
+          pattern: '^\d+\.\d+\.\d+$'
+          description: Server version
+          example: "0.8.4"
+        capabilities:
+          type: array
+          items:
+            type: string
+          description: List of server capabilities
+          example: ["crdt_sync", "presence", "compression"]
+      required: [server_id, version, capabilities]
+
+    ErrorResponse:
+      type: object
+      description: Error response format
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request parameters"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_PARAMETER"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+      required: [error, code]
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: synchronization
+    description: Real-time CRDT synchronization operations
+  - name: presence
+    description: Peer presence and user management
+  - name: system
+    description: System-level operations and health checks

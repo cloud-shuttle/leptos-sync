@@ -11,6 +11,9 @@ pub mod multi_transport;
 pub mod leptos_ws_pro_transport;
 pub mod compatibility_layer;
 pub mod hybrid_transport_impl;
+pub mod message_protocol;
+pub mod websocket_client;
+pub mod websocket_integration;
 
 #[cfg(test)]
 pub mod leptos_ws_pro_tests;
@@ -25,6 +28,9 @@ pub mod hybrid_transport_tests;
 
 #[cfg(test)]
 pub mod enhanced_features_tests;
+
+#[cfg(test)]
+pub mod websocket_integration_tests;
 
 #[derive(Error, Debug)]
 pub enum TransportError {
@@ -133,57 +139,16 @@ impl Clone for InMemoryTransport {
     }
 }
 
-/// WebSocket transport wrapper
-pub struct WebSocketTransport {
-    inner: websocket::WebSocketTransport,
-}
-
-impl WebSocketTransport {
-    pub fn new(url: String) -> Self {
-        Self {
-            inner: websocket::WebSocketTransport::new(url),
-        }
-    }
-
-    pub async fn connect(&self) -> Result<(), TransportError> {
-        self.inner.connect().await.map_err(|e| TransportError::ConnectionFailed(e.to_string()))
-    }
-
-    pub async fn disconnect(&self) -> Result<(), TransportError> {
-        self.inner.disconnect().await.map_err(|e| TransportError::ConnectionFailed(e.to_string()))
-    }
-}
-
-impl SyncTransport for WebSocketTransport {
-    type Error = TransportError;
-
-    fn send<'a>(&'a self, data: &'a [u8]) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Self::Error>> + Send + 'a>> {
-        Box::pin(async move {
-            self.inner.send(data).await.map_err(|e| TransportError::SendFailed(e.to_string()))
-        })
-    }
-
-    fn receive(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<Vec<u8>>, Self::Error>> + Send + '_>> {
-        Box::pin(async move {
-            self.inner.receive().await.map_err(|e| TransportError::ReceiveFailed(e.to_string()))
-        })
-    }
-
-    fn is_connected(&self) -> bool {
-        self.inner.is_connected()
-    }
-}
-
-impl Clone for WebSocketTransport {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
-}
+// Re-export the WebSocket transport from the websocket module
+pub use websocket::{WebSocketTransport, WebSocketConfig, WebSocketError, ConnectionState};
 
 // Re-export HybridTransport from the implementation module
 pub use hybrid_transport_impl::HybridTransport;
+
+// Re-export WebSocket types
+pub use websocket_client::{WebSocketClient, WebSocketClientConfig, WebSocketClientError};
+pub use message_protocol::{SyncMessage, MessageCodec, CrdtType, UserInfo, PresenceAction, ServerInfo};
+pub use websocket_integration::{WebSocketSyncEngine, WebSocketIntegrationConfig, WebSocketSyncEngineBuilder};
 
 /// Transport configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

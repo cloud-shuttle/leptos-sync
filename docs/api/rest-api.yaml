@@ -1,0 +1,773 @@
+openapi: 3.0.3
+info:
+  title: Leptos-Sync REST API
+  version: 0.8.4
+  description: |
+    HTTP API for collection management, metadata operations, and administrative functions.
+    
+    This API provides RESTful endpoints for managing CRDT collections, exporting data,
+    and performing administrative operations. It complements the WebSocket API for
+    real-time synchronization.
+    
+    ## Features
+    - Collection lifecycle management
+    - Data export and import
+    - Metadata operations
+    - Administrative functions
+    - Health monitoring
+  contact:
+    name: Leptos-Sync Team
+    url: https://github.com/leptos-sync/leptos-sync
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://api.leptos-sync.io/v1
+    description: Production server
+  - url: https://staging-api.leptos-sync.io/v1
+    description: Staging server
+
+paths:
+  /collections:
+    get:
+      summary: List collections
+      description: Retrieve a list of all collections accessible to the authenticated user
+      tags:
+        - collections
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of collections to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of collections to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: crdt_type
+          in: query
+          description: Filter by CRDT type
+          schema:
+            $ref: '#/components/schemas/CRDTType'
+        - name: search
+          in: query
+          description: Search collections by name
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        '200':
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collections:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Collection'
+                  total:
+                    type: integer
+                    description: Total number of collections
+                  limit:
+                    type: integer
+                    description: Maximum number of collections returned
+                  offset:
+                    type: integer
+                    description: Number of collections skipped
+              example:
+                collections:
+                  - id: "doc-123"
+                    name: "My Document"
+                    crdt_type: "lww_register"
+                    created_at: "2022-01-01T00:00:00Z"
+                    updated_at: "2022-01-01T12:00:00Z"
+                    replica_count: 3
+                    size_bytes: 1024
+                total: 1
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      summary: Create collection
+      description: Create a new CRDT collection
+      tags:
+        - collections
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+            example:
+              name: "My New Document"
+              crdt_type: "lww_register"
+              description: "A collaborative text document"
+      responses:
+        '201':
+          description: Collection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+              example:
+                id: "doc-456"
+                name: "My New Document"
+                crdt_type: "lww_register"
+                created_at: "2022-01-01T00:00:00Z"
+                updated_at: "2022-01-01T00:00:00Z"
+                replica_count: 1
+                size_bytes: 0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Collection with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Collection name already exists"
+                code: "COLLECTION_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /collections/{collection_id}:
+    get:
+      summary: Get collection details
+      description: Retrieve detailed information about a specific collection
+      tags:
+        - collections
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: Unique identifier for the collection
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,100}$'
+          example: "doc-123"
+      responses:
+        '200':
+          description: Collection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionDetails'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update collection
+      description: Update collection metadata
+      tags:
+        - collections
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: Unique identifier for the collection
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,100}$'
+          example: "doc-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCollectionRequest'
+            example:
+              name: "Updated Document Name"
+              description: "Updated description"
+      responses:
+        '200':
+          description: Collection updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete collection
+      description: Permanently delete a collection and all its data
+      tags:
+        - collections
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: Unique identifier for the collection
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,100}$'
+          example: "doc-123"
+      responses:
+        '204':
+          description: Collection deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /collections/{collection_id}/export:
+    get:
+      summary: Export collection state
+      description: Export the current state of a collection in various formats
+      tags:
+        - collections
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: Unique identifier for the collection
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,100}$'
+          example: "doc-123"
+        - name: format
+          in: query
+          description: Export format
+          schema:
+            type: string
+            enum: [json, binary, csv]
+            default: json
+        - name: include_metadata
+          in: query
+          description: Include collection metadata in export
+          schema:
+            type: boolean
+            default: true
+        - name: include_deltas
+          in: query
+          description: Include CRDT deltas in export
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Collection state export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionExport'
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+              description: Binary export format
+            text/csv:
+              schema:
+                type: string
+              description: CSV export format
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /collections/{collection_id}/import:
+    post:
+      summary: Import collection state
+      description: Import collection state from a previously exported file
+      tags:
+        - collections
+      parameters:
+        - name: collection_id
+          in: path
+          required: true
+          description: Unique identifier for the collection
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{1,100}$'
+          example: "doc-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionImport'
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+            description: Binary import format
+      responses:
+        '200':
+          description: Collection state imported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Collection state imported successfully"
+                  imported_records:
+                    type: integer
+                    example: 42
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /health:
+    get:
+      summary: Health check
+      description: Check the health status of the API server
+      tags:
+        - system
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: "healthy"
+                timestamp: "2022-01-01T00:00:00Z"
+                version: "0.8.4"
+                uptime: 3600
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: "unhealthy"
+                timestamp: "2022-01-01T00:00:00Z"
+                version: "0.8.4"
+                uptime: 3600
+                errors: ["Database connection failed"]
+
+  /metrics:
+    get:
+      summary: Get server metrics
+      description: Retrieve server performance and usage metrics
+      tags:
+        - system
+      responses:
+        '200':
+          description: Server metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    Collection:
+      type: object
+      description: Basic collection information
+      properties:
+        id:
+          type: string
+          description: Unique collection identifier
+          example: "doc-123"
+        name:
+          type: string
+          description: Human-readable collection name
+          example: "My Document"
+        crdt_type:
+          $ref: '#/components/schemas/CRDTType'
+        created_at:
+          type: string
+          format: date-time
+          description: When the collection was created
+          example: "2022-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: When the collection was last updated
+          example: "2022-01-01T12:00:00Z"
+        replica_count:
+          type: integer
+          minimum: 0
+          description: Number of active replicas
+          example: 3
+        size_bytes:
+          type: integer
+          minimum: 0
+          description: Total size of collection data in bytes
+          example: 1024
+      required: [id, name, crdt_type, created_at, updated_at, replica_count, size_bytes]
+
+    CollectionDetails:
+      allOf:
+        - $ref: '#/components/schemas/Collection'
+        - type: object
+          properties:
+            description:
+              type: string
+              description: Collection description
+              example: "A collaborative text document"
+            owner_id:
+              type: string
+              format: uuid
+              description: ID of the collection owner
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            permissions:
+              type: object
+              description: Collection access permissions
+              properties:
+                read:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  example: ["550e8400-e29b-41d4-a716-446655440000"]
+                write:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  example: ["550e8400-e29b-41d4-a716-446655440000"]
+            replicas:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReplicaInfo'
+              description: List of active replicas
+            delta_count:
+              type: integer
+              minimum: 0
+              description: Total number of deltas in the collection
+              example: 42
+
+    CRDTType:
+      type: string
+      enum: 
+        - lww_register
+        - lww_map
+        - g_counter
+        - rga
+        - lseq
+        - tree
+        - graph
+      description: Type of CRDT being synchronized
+      example: "lww_register"
+
+    CreateCollectionRequest:
+      type: object
+      description: Request to create a new collection
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Collection name
+          example: "My New Document"
+        crdt_type:
+          $ref: '#/components/schemas/CRDTType'
+        description:
+          type: string
+          maxLength: 500
+          description: Optional collection description
+          example: "A collaborative text document"
+      required: [name, crdt_type]
+
+    UpdateCollectionRequest:
+      type: object
+      description: Request to update collection metadata
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: New collection name
+          example: "Updated Document Name"
+        description:
+          type: string
+          maxLength: 500
+          description: New collection description
+          example: "Updated description"
+
+    CollectionExport:
+      type: object
+      description: Exported collection state
+      properties:
+        collection:
+          $ref: '#/components/schemas/CollectionDetails'
+        data:
+          type: object
+          description: Collection data in CRDT format
+          additionalProperties: true
+        deltas:
+          type: array
+          items:
+            type: object
+            description: CRDT delta records
+          description: List of deltas (if requested)
+        export_metadata:
+          type: object
+          properties:
+            exported_at:
+              type: string
+              format: date-time
+            format_version:
+              type: string
+            total_size_bytes:
+              type: integer
+          required: [exported_at, format_version, total_size_bytes]
+
+    CollectionImport:
+      type: object
+      description: Collection state to import
+      properties:
+        data:
+          type: object
+          description: Collection data in CRDT format
+          additionalProperties: true
+        deltas:
+          type: array
+          items:
+            type: object
+            description: CRDT delta records
+          description: List of deltas to import
+        import_options:
+          type: object
+          properties:
+            merge_strategy:
+              type: string
+              enum: [replace, merge, append]
+              default: merge
+            preserve_timestamps:
+              type: boolean
+              default: false
+
+    ReplicaInfo:
+      type: object
+      description: Information about a collection replica
+      properties:
+        replica_id:
+          type: string
+          format: uuid
+          description: Unique replica identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        last_seen:
+          type: string
+          format: date-time
+          description: When the replica was last active
+          example: "2022-01-01T12:00:00Z"
+        is_online:
+          type: boolean
+          description: Whether the replica is currently online
+          example: true
+        user_info:
+          type: object
+          properties:
+            user_id:
+              type: string
+            username:
+              type: string
+            display_name:
+              type: string
+          description: User information for this replica
+
+    HealthStatus:
+      type: object
+      description: Server health status
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          description: Overall health status
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the health check was performed
+          example: "2022-01-01T00:00:00Z"
+        version:
+          type: string
+          description: Server version
+          example: "0.8.4"
+        uptime:
+          type: integer
+          description: Server uptime in seconds
+          example: 3600
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of health check errors
+          example: []
+      required: [status, timestamp, version, uptime]
+
+    ServerMetrics:
+      type: object
+      description: Server performance metrics
+      properties:
+        collections:
+          type: object
+          properties:
+            total:
+              type: integer
+            active:
+              type: integer
+        replicas:
+          type: object
+          properties:
+            total:
+              type: integer
+            online:
+              type: integer
+        messages:
+          type: object
+          properties:
+            sent_per_second:
+              type: number
+            received_per_second:
+              type: number
+        storage:
+          type: object
+          properties:
+            used_bytes:
+              type: integer
+            available_bytes:
+              type: integer
+        performance:
+          type: object
+          properties:
+            avg_response_time_ms:
+              type: number
+            cpu_usage_percent:
+              type: number
+            memory_usage_percent:
+              type: number
+
+    ErrorResponse:
+      type: object
+      description: Error response format
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request parameters"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_PARAMETER"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+      required: [error, code]
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid parameters or malformed request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Invalid request parameters"
+            code: "BAD_REQUEST"
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Authentication required"
+            code: "UNAUTHORIZED"
+
+    Forbidden:
+      description: Forbidden - Access denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Access denied"
+            code: "FORBIDDEN"
+
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Collection not found"
+            code: "NOT_FOUND"
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: collections
+    description: Collection lifecycle management
+  - name: system
+    description: System health and metrics

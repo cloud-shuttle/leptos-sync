@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://leptos-sync.io/schemas/crdt-message.json",
+  "title": "CRDT Message",
+  "description": "Base schema for all CRDT synchronization messages",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["delta", "heartbeat", "peer_join", "peer_leave", "welcome", "presence", "binary_ack"],
+      "description": "Type of synchronization message"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Protocol version in semantic versioning format"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the message was created"
+    },
+    "replica_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the replica that created this message"
+    }
+  },
+  "required": ["type", "version", "timestamp", "replica_id"],
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "delta" } } },
+      "then": {
+        "properties": {
+          "collection_id": { 
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Unique identifier for the synchronized collection"
+          },
+          "crdt_type": { 
+            "type": "string",
+            "enum": ["lww_register", "lww_map", "g_counter", "rga", "lseq", "tree", "graph"],
+            "description": "Type of CRDT being synchronized"
+          },
+          "delta": {
+            "type": "object",
+            "description": "CRDT-specific delta operation data",
+            "additionalProperties": true
+          }
+        },
+        "required": ["collection_id", "crdt_type", "delta"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "heartbeat" } } },
+      "then": {
+        "properties": {
+          "stats": {
+            "type": "object",
+            "description": "Optional statistics about the replica's state",
+            "properties": {
+              "messages_sent": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of messages sent by this replica"
+              },
+              "messages_received": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of messages received by this replica"
+              },
+              "last_sync": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Timestamp of last successful synchronization"
+              },
+              "collections_count": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Number of collections managed by this replica"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "peer_join" } } },
+      "then": {
+        "properties": {
+          "user_info": {
+            "type": "object",
+            "description": "Optional user information for the joining peer",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Unique user identifier"
+              },
+              "username": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50,
+                "description": "Display username"
+              },
+              "display_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "Human-readable display name"
+              },
+              "avatar_url": {
+                "type": "string",
+                "format": "uri",
+                "description": "URL to user's avatar image"
+              }
+            },
+            "required": ["user_id"]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "peer_leave" } } },
+      "then": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": ["disconnect", "timeout", "error", "manual"],
+            "description": "Reason for the peer leaving"
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "welcome" } } },
+      "then": {
+        "properties": {
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Assigned peer ID for this connection"
+          },
+          "server_info": {
+            "type": "object",
+            "description": "Information about the server",
+            "properties": {
+              "server_id": {
+                "type": "string",
+                "description": "Unique server identifier"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                "description": "Server version"
+              },
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "List of server capabilities"
+              }
+            },
+            "required": ["server_id", "version", "capabilities"]
+          }
+        },
+        "required": ["peer_id", "server_info"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "presence" } } },
+      "then": {
+        "properties": {
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID of the peer whose presence is being updated"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["join", "leave", "update"],
+            "description": "Type of presence action"
+          },
+          "user_info": {
+            "type": "object",
+            "description": "Updated user information (for update action)",
+            "properties": {
+              "user_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "username": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "display_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "avatar_url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        },
+        "required": ["peer_id", "action"]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "binary_ack" } } },
+      "then": {
+        "properties": {
+          "peer_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID of the peer that sent the binary data"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Size of the acknowledged binary data in bytes"
+          }
+        },
+        "required": ["peer_id", "size"]
+      }
+    }
+  ]
+}

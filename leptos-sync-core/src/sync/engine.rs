@@ -28,7 +28,7 @@ pub enum SyncEngineError {
 }
 
 /// Enhanced synchronization state
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SyncState {
     /// Not synchronized
     NotSynced,
@@ -42,6 +42,10 @@ pub enum SyncState {
     ResolvingConflicts,
     /// Offline mode
     Offline,
+    /// Connected to network
+    Connected,
+    /// Disconnected from network
+    Disconnected,
 }
 
 /// Enhanced synchronization message types
@@ -81,10 +85,14 @@ pub struct PeerInfo {
     pub is_online: bool,
     pub last_sync: Option<chrono::DateTime<chrono::Utc>>,
     pub sync_status: PeerSyncStatus,
+    // Additional fields for compatibility
+    pub id: ReplicaId,
+    pub status: PeerSyncStatus,
+    pub version: u32,
 }
 
 /// Peer synchronization status
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PeerSyncStatus {
     /// Never synced
     Never,
@@ -94,6 +102,10 @@ pub enum PeerSyncStatus {
     Failed { timestamp: chrono::DateTime<chrono::Utc>, error: String },
     /// Currently syncing
     Syncing { started: chrono::DateTime<chrono::Utc> },
+    /// Connected to peer
+    Connected,
+    /// Disconnected from peer
+    Disconnected,
 }
 
 /// Default conflict resolver using Last-Write-Wins
@@ -338,11 +350,15 @@ where
         let mut peers = self.peers.write().await;
         
         let peer_info = PeerInfo {
-            replica_id,
+            replica_id: replica_id.clone(),
             last_seen: timestamp,
             is_online: true,
             last_sync: None,
             sync_status: PeerSyncStatus::Never,
+            // Additional fields for compatibility
+            id: replica_id,
+            status: PeerSyncStatus::Never,
+            version: 1,
         };
         
         peers.insert(replica_id, peer_info);
@@ -371,7 +387,7 @@ where
     }
 
     /// Get all peers
-    pub async fn peers(&self) -> impl Iterator<Item = (ReplicaId, PeerInfo)> + 'static + use<Tr> {
+    pub async fn peers(&self) -> impl Iterator<Item = (ReplicaId, PeerInfo)> + 'static {
         let peers = self.peers.read().await;
         peers.clone().into_iter()
     }
